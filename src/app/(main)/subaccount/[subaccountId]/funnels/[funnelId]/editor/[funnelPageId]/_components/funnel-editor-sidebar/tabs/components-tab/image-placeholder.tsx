@@ -1,5 +1,5 @@
 import { EditorBtns } from "@/lib/constants";
-import { Image } from "lucide-react";
+import { Image as ImageIcon } from "lucide-react";
 import React from "react";
 
 type Props = {};
@@ -18,7 +18,7 @@ const ImagePlaceholder = (props: Props) => {
       }}
       className=" h-14 w-14 bg-muted rounded-lg flex items-center justify-center"
     >
-      <Image size={40} className="text-muted-foreground" />
+      <ImageIcon size={40} className="text-muted-foreground" />
     </div>
   );
 };

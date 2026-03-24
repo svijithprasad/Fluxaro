@@ -40,7 +40,7 @@ import { usePathname } from "next/navigation";
 type Props = {
   defaultOpen?: boolean;
   subAccounts: SubAccount[];
-  sidebarOpt: AgencySidebarOption[] | SubAccountSidebarOption[];
+  sidebarOpt: (AgencySidebarOption | SubAccountSidebarOption)[];
   sidebarLogo: string;
   details: any;
   user: any;

@@ -1,6 +1,7 @@
 "use client";
 import { getMedia } from "@/lib/queries";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
+import Image from "next/image";
 
 type Props = {
   subaccountId: string;
@@ -19,7 +20,7 @@ const MediaBucketPicker = ({ subaccountId, onSelect }: Props) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
-  const fetchMedia = async () => {
+  const fetchMedia = useCallback(async () => {
     if (!subaccountId) return;
     setIsLoading(true);
     try {
@@ -31,13 +32,13 @@ const MediaBucketPicker = ({ subaccountId, onSelect }: Props) => {
       console.error("Failed to load media", e);
     }
     setIsLoading(false);
-  };
+  }, [subaccountId]);
 
   useEffect(() => {
     if (isOpen) {
       fetchMedia();
     }
-  }, [isOpen, subaccountId]);
+  }, [isOpen, fetchMedia]);
 
   return (
     <div className="flex flex-col gap-2 mt-3">
@@ -69,11 +70,14 @@ const MediaBucketPicker = ({ subaccountId, onSelect }: Props) => {
                     setIsOpen(false);
                   }}
                 >
-                  <img
-                    src={file.link}
-                    alt={file.name}
-                    className="w-full h-20 object-cover group-hover:opacity-80 transition-opacity"
-                  />
+                  <div className="relative w-full h-20">
+                    <Image
+                      src={file.link}
+                      alt={file.name}
+                      fill
+                      className="object-cover group-hover:opacity-80 transition-opacity"
+                    />
+                  </div>
                   <p className="text-[10px] text-muted-foreground p-1 truncate">
                     {file.name}
                   </p>

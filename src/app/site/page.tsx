@@ -102,7 +102,7 @@ export default async function Home() {
       <section id="pricing" className="flex justify-center items-center flex-col gap-4 pt-24 px-4">
         <h2 className="text-4xl text-center font-bold">Choose the Plan That Works for You</h2>
         <p className="text-muted-foreground text-center max-w-2xl">
-          Our flexible pricing plans are designed to help you grow. Whether you're just starting 
+          Our flexible pricing plans are designed to help you grow. Whether you&apos;re just starting 
           out or managing a large agency, we have you covered.
         </p>
         <div className="flex justify-center gap-8 flex-wrap mt-12 max-w-[1200px] w-full pb-20">

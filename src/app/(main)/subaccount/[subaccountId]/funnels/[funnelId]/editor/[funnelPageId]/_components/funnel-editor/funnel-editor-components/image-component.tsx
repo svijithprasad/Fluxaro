@@ -6,6 +6,7 @@ import { parseCssToReactStyles } from "@/lib/css-parser";
 import clsx from "clsx";
 import { Trash } from "lucide-react";
 import React from "react";
+import Image from "next/image";
 
 type Props = {
   element: EditorElement;
@@ -68,12 +69,15 @@ const ImageComponent = (props: Props) => {
         )}
 
       {!Array.isArray(props.element.content) && (
-        <img
-          width={props.element.styles.width || "560"}
-          height={props.element.styles.height || "315"}
-          src={props.element.content.src}
-          alt="builder image"
-        />
+        <div className="relative w-full h-full flex items-center justify-center">
+          <Image
+            src={props.element.content.src || ""}
+            alt="builder image"
+            width={typeof props.element.styles.width === "number" ? props.element.styles.width : 560}
+            height={typeof props.element.styles.height === "number" ? props.element.styles.height : 315}
+            className="object-contain"
+          />
+        </div>
       )}
 
       {state.editor.selectedElement.id === props.element.id &&

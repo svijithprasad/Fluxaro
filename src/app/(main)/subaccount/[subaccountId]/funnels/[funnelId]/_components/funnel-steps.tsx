@@ -55,7 +55,7 @@ const FunnelSteps = ({ funnel, funnelId, pages, subaccountId, userRole }: Props)
     if (pages.length > 0 && !clickedPage) {
       setClickedPage(pages[0]);
     }
-  }, [pages]);
+  }, [pages, clickedPage]);
 
   const onDragStart = (event: DragStart) => {
     //current chosen page

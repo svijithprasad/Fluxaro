@@ -58,10 +58,7 @@ export const getAuthUserDetails = async () => {
           updatedAt: true,
           SidebarOption: true,
           SubAccount: {
-            select: {
-              id: true,
-              name: true,
-              subAccountLogo: true,
+            include: {
               SidebarOption: true,
             },
           },

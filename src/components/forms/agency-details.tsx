@@ -96,7 +96,7 @@ const AgencyDetails = ({ data }: Props) => {
     }
 
     console.log("FORM DATA: ", data);
-  }, [data]);
+  }, [data, form]);
 
   const handleSubmit = async (values: z.infer<typeof FormSchema>) => {
     try {

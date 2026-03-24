@@ -1,5 +1,6 @@
 import { getAuthUserDetails } from "@/lib/queries";
 import { getSubscription } from "@/lib/subscription";
+import { AgencySidebarOption, SubAccountSidebarOption } from "@prisma/client";
 import { off } from "process";
 import React from "react";
 import MenuOptions from "./menu-options";
@@ -33,7 +34,7 @@ const Sidebar = async ({ id, type }: Props) => {
     }
   }
 
-  let sidebarOpt =
+  let sidebarOpt: (AgencySidebarOption | SubAccountSidebarOption)[] =
     type === "agency"
       ? user.Agency.SidebarOption || []
       : user.Agency.SubAccount.find((subaccount) => subaccount.id === id)

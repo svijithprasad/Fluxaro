@@ -24,7 +24,7 @@ const FunnelEditor = ({ funnelPageId, liveMode }: Props) => {
         payload: { value: true },
       });
     }
-  }, [liveMode]);
+  }, [liveMode, dispatch]);
 
   //CHALLENGE: make this more performant
   useEffect(() => {
@@ -41,7 +41,7 @@ const FunnelEditor = ({ funnelPageId, liveMode }: Props) => {
       });
     };
     fetchData();
-  }, [funnelPageId]);
+  }, [funnelPageId, dispatch, liveMode]);
 
   const handleClick = () => {
     dispatch({
