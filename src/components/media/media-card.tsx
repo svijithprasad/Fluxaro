@@ -26,9 +26,9 @@ import Image from "next/image";
 import { deleteMedia, saveActivityLogsNotification } from "@/lib/queries";
 import { toast } from "../ui/use-toast";
 
-type Props = { file: GetMediaFiles[number] };
+type Props = { file: GetMediaFiles[number]; userRole?: string };
 
-const MediaCard = ({ file }: Props) => {
+const MediaCard = ({ file, userRole }: Props) => {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -69,11 +69,13 @@ const MediaCard = ({ file }: Props) => {
             >
               <Copy size={15} /> Copy Image Link
             </DropdownMenuItem>
-            <AlertDialogTrigger asChild>
-              <DropdownMenuItem className="flex gap-2">
-                <Trash size={15} /> Delete File
-              </DropdownMenuItem>
-            </AlertDialogTrigger>
+            {userRole !== "SUBACCOUNT_GUEST" && (
+              <AlertDialogTrigger asChild>
+                <DropdownMenuItem className="flex gap-2">
+                  <Trash size={15} /> Delete File
+                </DropdownMenuItem>
+              </AlertDialogTrigger>
+            )}
           </DropdownMenuContent>
         </article>
       </DropdownMenu>

@@ -13,7 +13,16 @@ export type EditorElement = {
   type: EditorBtns;
   content:
     | EditorElement[]
-    | { href?: string; innerText?: string; src?: string };
+    | {
+        href?: string;
+        innerText?: string;
+        src?: string;
+        customCss?: string;
+        paymentButtonId?: string;
+        brandName?: string;
+        navLinks?: { label: string; href: string }[];
+        code?: string;
+      };
 };
 
 export type Editor = {

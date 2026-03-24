@@ -24,12 +24,14 @@ import { v4 } from "uuid";
 import { toast } from "../ui/use-toast";
 import { useModal } from "@/providers/modal-provider";
 import { useRouter } from "next/navigation";
+import UpgradePrompt from "../global/upgrade-prompt";
 import { zodResolver } from "@hookform/resolvers/zod";
 import FileUpload from "../global/file-upload";
 
 interface CreateFunnelProps {
   defaultData?: Funnel;
   subAccountId: string;
+  userRole?: string;
 }
 
 //CHALLENGE: Use favicons
@@ -37,8 +39,9 @@ interface CreateFunnelProps {
 const FunnelForm: React.FC<CreateFunnelProps> = ({
   defaultData,
   subAccountId,
+  userRole,
 }) => {
-  const { setClose } = useModal();
+  const { setClose, setOpen } = useModal();
   const router = useRouter();
   const form = useForm<z.infer<typeof CreateFunnelFormSchema>>({
     mode: "onChange",
@@ -66,29 +69,65 @@ const FunnelForm: React.FC<CreateFunnelProps> = ({
 
   const onSubmit = async (values: z.infer<typeof CreateFunnelFormSchema>) => {
     if (!subAccountId) return;
-    const response = await upsertFunnel(
-      subAccountId,
-      { ...values, liveProducts: defaultData?.liveProducts || "[]" },
-      defaultData?.id || v4()
-    );
-    await saveActivityLogsNotification({
-      agencyId: undefined,
-      description: `Update funnel | ${response.name}`,
-      subaccountId: subAccountId,
-    });
-    if (response)
-      toast({
-        title: "Success",
-        description: "Saved funnel details",
+    try {
+      const response = await upsertFunnel(
+        subAccountId,
+        { ...values, liveProducts: defaultData?.liveProducts || "[]" },
+        defaultData?.id || v4(),
+        defaultData?.version
+      );
+      await saveActivityLogsNotification({
+        agencyId: undefined,
+        description: `Update funnel | ${response.name}`,
+        subaccountId: subAccountId,
       });
-    else
+      if (response)
+        toast({
+          title: "Success",
+          description: "Saved funnel details",
+        });
+      else
+        toast({
+          variant: "destructive",
+          title: "Oppse!",
+          description: "Could not save funnel details",
+        });
+      setClose();
+      router.refresh();
+    } catch (error: any) {
+      try {
+        const errData = JSON.parse(error.message);
+        if (errData.error === "CONFLICT") {
+          toast({
+            variant: "destructive",
+            title: "Conflict Detected",
+            description: errData.message,
+          });
+          router.refresh();
+          setClose();
+          return;
+        }
+        if (errData.error === "LIMIT_REACHED") {
+          setOpen(
+            <UpgradePrompt
+              resource={errData.resource}
+              current={errData.current}
+              limit={errData.limit}
+              plan={errData.plan}
+              agencyId={errData.agencyId}
+            />
+          );
+          return;
+        }
+      } catch (e) {
+        // Not a JSON error
+      }
       toast({
         variant: "destructive",
         title: "Oppse!",
         description: "Could not save funnel details",
       });
-    setClose();
-    router.refresh();
+    }
   };
   return (
     <Card className="flex-1">
@@ -161,9 +200,11 @@ const FunnelForm: React.FC<CreateFunnelProps> = ({
                 </FormItem>
               )}
             />
-            <Button className="w-20 mt-4" disabled={isLoading} type="submit">
-              {form.formState.isSubmitting ? <Loading /> : "Save"}
-            </Button>
+            {userRole !== "SUBACCOUNT_GUEST" && (
+              <Button className="w-20 mt-4" disabled={isLoading} type="submit">
+                {form.formState.isSubmitting ? <Loading /> : "Save"}
+              </Button>
+            )}
           </form>
         </Form>
       </CardContent>

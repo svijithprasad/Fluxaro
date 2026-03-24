@@ -53,20 +53,37 @@ const FunnelEditorNavigation = ({
   ) => {
     if (event.target.value === funnelPageDetails.name) return;
     if (event.target.value) {
-      await upsertFunnelPage(
-        subaccountId,
-        {
-          id: funnelPageDetails.id,
-          name: event.target.value,
-          order: funnelPageDetails.order,
-        },
-        funnelId
-      );
+      try {
+        await upsertFunnelPage(
+          subaccountId,
+          {
+            id: funnelPageDetails.id,
+            name: event.target.value,
+            order: funnelPageDetails.order,
+          },
+          funnelId,
+          funnelPageDetails.version
+        );
 
-      toast("Success", {
-        description: "Saved Funnel Page title",
-      });
-      router.refresh();
+        toast("Success", {
+          description: "Saved Funnel Page title",
+        });
+        router.refresh();
+      } catch (error: any) {
+        try {
+          const errData = JSON.parse(error.message);
+          if (errData.error === "CONFLICT") {
+            toast("Conflict Detected", {
+              description: errData.message,
+            });
+            router.refresh();
+            return;
+          }
+        } catch (e) {}
+        toast("Oppse!", {
+          description: "Could not save title",
+        });
+      }
     } else {
       toast("Oppse!", {
         description: "You need to have a title!",
@@ -97,7 +114,8 @@ const FunnelEditorNavigation = ({
           ...funnelPageDetails,
           content,
         },
-        funnelId
+        funnelId,
+        funnelPageDetails.version
       );
       await saveActivityLogsNotification({
         agencyId: undefined,
@@ -107,7 +125,18 @@ const FunnelEditorNavigation = ({
       toast("Success", {
         description: "Saved Editor",
       });
-    } catch (error) {
+      router.refresh();
+    } catch (error: any) {
+      try {
+        const errData = JSON.parse(error.message);
+        if (errData.error === "CONFLICT") {
+          toast("Conflict Detected", {
+            description: errData.message,
+          });
+          router.refresh();
+          return;
+        }
+      } catch (e) {}
       toast("Oppse!", {
         description: "Could not save editor",
       });

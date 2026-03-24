@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/card";
 import { AGENCY_SLUG } from "@/lib/constants";
 import { db } from "@/lib/db";
-import { CheckCircleIcon } from "lucide-react";
+import { CheckCircleIcon, Building2, Users } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import React from "react";
@@ -24,12 +24,15 @@ type Props = {
 const LaunchPadPage = async ({ params, searchParams }: Props) => {
   const agencyDetails = await db.agency.findUnique({
     where: { id: params.agencyId },
+    include: {
+      SubAccount: true,
+      users: true,
+    },
   });
 
   if (!agencyDetails) return;
 
   const allDetailsExist =
-    agencyDetails.address &&
     agencyDetails.address &&
     agencyDetails.agencyLogo &&
     agencyDetails.city &&
@@ -54,21 +57,6 @@ const LaunchPadPage = async ({ params, searchParams }: Props) => {
             <div className="flex justify-between items-center w-full border p-4 rounded-lg gap-2">
               <div className="flex md:items-center gap-4 flex-col md:!flex-row">
                 <Image
-                  src="/appstore.png"
-                  alt="app logo"
-                  height={80}
-                  width={80}
-                  className="rounded-md object-contain"
-                  priority
-                />
-                <p>Save the website as a shortcut on your mobile device</p>
-              </div>
-              <Button className=" hover:bg-primary/80">Start</Button>
-            </div>
-
-            <div className="flex justify-between items-center w-full border p-4 rounded-lg gap-2">
-              <div className="flex md:items-center gap-4 flex-col md:!flex-row">
-                <Image
                   src={agencyDetails.agencyLogo}
                   alt="app logo"
                   height={80}
@@ -84,8 +72,50 @@ const LaunchPadPage = async ({ params, searchParams }: Props) => {
                 />
               ) : (
                 <Link
-                  className="bg-primary py-2 px-4 rounded-md  hover:bg-primary/80"
+                  className="bg-primary py-2 px-4 rounded-md text-white hover:bg-primary/80"
                   href={`${AGENCY_SLUG}/${params.agencyId}/settings`}
+                >
+                  Start
+                </Link>
+              )}
+            </div>
+            <div className="flex justify-between items-center w-full border p-4 rounded-lg gap-2">
+              <div className="flex md:items-center gap-4 flex-col md:!flex-row">
+                <div className="h-[80px] w-[80px] flex items-center justify-center bg-muted rounded-md shrink-0">
+                  <Building2 size={40} className="text-muted-foreground" />
+                </div>
+                <p>Create at least one subaccount for your clients</p>
+              </div>
+              {agencyDetails.SubAccount.length > 0 ? (
+                <CheckCircleIcon
+                  size={50}
+                  className="text-primary p-2 flex-shrink-0"
+                />
+              ) : (
+                <Link
+                  className="bg-primary py-2 px-4 rounded-md text-white hover:bg-primary/80"
+                  href={`/agency/${params.agencyId}/all-subaccounts`}
+                >
+                  Start
+                </Link>
+              )}
+            </div>
+            <div className="flex justify-between items-center w-full border p-4 rounded-lg gap-2">
+              <div className="flex md:items-center gap-4 flex-col md:!flex-row">
+                <div className="h-[80px] w-[80px] flex items-center justify-center bg-muted rounded-md shrink-0">
+                  <Users size={40} className="text-muted-foreground" />
+                </div>
+                <p>Invite team members to your agency</p>
+              </div>
+              {agencyDetails.users.length > 1 ? (
+                <CheckCircleIcon
+                  size={50}
+                  className="text-primary p-2 flex-shrink-0"
+                />
+              ) : (
+                <Link
+                  className="bg-primary py-2 px-4 rounded-md text-white hover:bg-primary/80"
+                  href={`/agency/${params.agencyId}/team`}
                 >
                   Start
                 </Link>

@@ -10,7 +10,8 @@ import { FunnelsForSubAccount } from "@/lib/types";
 import { useModal } from "@/providers/modal-provider";
 import { FunnelPage } from "@prisma/client";
 import { Check, ExternalLink, LucideEdit } from "lucide-react";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import {
   DragDropContext,
@@ -37,14 +38,25 @@ type Props = {
   subaccountId: string;
   pages: FunnelPage[];
   funnelId: string;
+  userRole?: string;
 };
 
-const FunnelSteps = ({ funnel, funnelId, pages, subaccountId }: Props) => {
+const FunnelSteps = ({ funnel, funnelId, pages, subaccountId, userRole }: Props) => {
   const [clickedPage, setClickedPage] = useState<FunnelPage | undefined>(
     pages[0]
   );
   const { setOpen } = useModal();
+  const router = useRouter();
   const [pagesState, setPagesState] = useState(pages);
+
+  // Sync local state when pages prop updates (after router.refresh())
+  useEffect(() => {
+    setPagesState(pages);
+    if (pages.length > 0 && !clickedPage) {
+      setClickedPage(pages[0]);
+    }
+  }, [pages]);
+
   const onDragStart = (event: DragStart) => {
     //current chosen page
     const { draggableId } = event;
@@ -80,10 +92,24 @@ const FunnelSteps = ({ funnel, funnelId, pages, subaccountId }: Props) => {
             order: index,
             name: page.name,
           },
-          funnelId
+          funnelId,
+          page.version
         );
-      } catch (error) {
+      } catch (error: any) {
         console.log(error);
+        try {
+          const errData = JSON.parse(error.message);
+          if (errData.error === "CONFLICT") {
+            toast({
+              variant: "destructive",
+              title: "Conflict Detected",
+              description: errData.message,
+            });
+            // Reload to get fresh state
+            window.location.reload();
+            return;
+          }
+        } catch (e) {}
         toast({
           variant: "destructive",
           title: "Failed",
@@ -110,53 +136,69 @@ const FunnelSteps = ({ funnel, funnelId, pages, subaccountId }: Props) => {
             </div>
             <Separator className="my-4" />
             {pagesState.length ? (
-              <DragDropContext onDragEnd={onDragEnd} onDragStart={onDragStart}>
-                <Droppable
-                  droppableId="funnels"
-                  direction="vertical"
-                  key="funnels"
-                >
-                  {(provided) => (
-                    <div {...provided.droppableProps} ref={provided.innerRef}>
-                      {pagesState.map((page, idx) => (
-                        <FunnelStepCard
-                          funnelPage={page}
-                          index={idx}
-                          key={page.id}
-                          activePage={page.id === clickedPage?.id}
-                          onClick={() => setClickedPage(page)}
-                        />
-                      ))}
-                      {provided.placeholder}
-                    </div>
-                  )}
-                </Droppable>
-              </DragDropContext>
+              userRole === "SUBACCOUNT_GUEST" ? (
+                <div className="flex flex-col gap-4">
+                  {pagesState.map((page, idx) => (
+                    <FunnelStepCard
+                      funnelPage={page}
+                      index={idx}
+                      key={page.id}
+                      activePage={page.id === clickedPage?.id}
+                      onClick={() => setClickedPage(page)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <DragDropContext onDragEnd={onDragEnd} onDragStart={onDragStart}>
+                  <Droppable
+                    droppableId="funnels"
+                    direction="vertical"
+                    key="funnels"
+                  >
+                    {(provided) => (
+                      <div {...provided.droppableProps} ref={provided.innerRef}>
+                        {pagesState.map((page, idx) => (
+                          <FunnelStepCard
+                            funnelPage={page}
+                            index={idx}
+                            key={page.id}
+                            activePage={page.id === clickedPage?.id}
+                            onClick={() => setClickedPage(page)}
+                          />
+                        ))}
+                        {provided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
+                </DragDropContext>
+              )
             ) : (
               <div className="text-center text-muted-foreground py-6">
                 No Pages
               </div>
             )}
           </ScrollArea>
-          <Button
-            className="mt-4 w-full"
-            onClick={() => {
-              setOpen(
-                <CustomModal
-                  title=" Create or Update a Funnel Page"
-                  subheading="Funnel Pages allow you to create step by step processes for customers to follow"
-                >
-                  <CreateFunnelPage
-                    subaccountId={subaccountId}
-                    funnelId={funnelId}
-                    order={pagesState.length}
-                  />
-                </CustomModal>
-              );
-            }}
-          >
-            Create New Steps
-          </Button>
+          {userRole !== "SUBACCOUNT_GUEST" && (
+            <Button
+              className="mt-4 w-full"
+              onClick={() => {
+                setOpen(
+                  <CustomModal
+                    title=" Create or Update a Funnel Page"
+                    subheading="Funnel Pages allow you to create step by step processes for customers to follow"
+                  >
+                    <CreateFunnelPage
+                      subaccountId={subaccountId}
+                      funnelId={funnelId}
+                      order={pagesState.length}
+                    />
+                  </CustomModal>
+                );
+              }}
+            >
+              Create New Steps
+            </Button>
+          )}
         </aside>
         <aside className="flex-[0.7] bg-muted p-4 ">
           {!!pages.length ? (
@@ -198,6 +240,7 @@ const FunnelSteps = ({ funnel, funnelId, pages, subaccountId }: Props) => {
                     defaultData={clickedPage}
                     funnelId={funnelId}
                     order={clickedPage?.order || 0}
+                    userRole={userRole}
                   />
                 </CardDescription>
               </CardHeader>

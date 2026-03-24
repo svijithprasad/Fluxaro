@@ -15,16 +15,19 @@ import MediaCard from "./media-card";
 type Props = {
   data: GetMediaFiles;
   subAccountId: string;
+  userRole?: string;
 };
 
-const MediaComponent = async ({ data, subAccountId }: Props) => {
+const MediaComponent = async ({ data, subAccountId, userRole }: Props) => {
   return (
     <div className="flex flex-col gap-4 w-full">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl md:text-4xl sm:text-2xl font-bold">
           Media Bucket
         </h1>
-        <MediaUploadButton subaccountId={subAccountId} />
+        {userRole !== "SUBACCOUNT_GUEST" && (
+          <MediaUploadButton subaccountId={subAccountId} />
+        )}
       </div>
       <Command className="bg-transparent">
         <CommandInput placeholder="Search for file name..." />
@@ -37,7 +40,7 @@ const MediaComponent = async ({ data, subAccountId }: Props) => {
                   key={file.id}
                   className="p-0 max-w-[300px] w-full rounded-lg !bg-transparent !font-medium !text-white"
                 >
-                  <MediaCard file={file} />
+                  <MediaCard file={file} userRole={userRole} />
                 </CommandItem>
               ))}
               {!data?.length && (

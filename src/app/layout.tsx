@@ -10,7 +10,7 @@ const font = DM_Sans({ subsets: ["latin"] });
 
 
 export const metadata: Metadata = {
-  title: "Plura",
+  title: "Fluxaro",
   description: "All in one Agency Solution",
 };
 

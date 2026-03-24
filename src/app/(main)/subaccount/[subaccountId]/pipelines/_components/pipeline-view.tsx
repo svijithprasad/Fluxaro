@@ -15,6 +15,7 @@ import { Flag, Plus } from "lucide-react";
 import CustomModal from "@/components/global/custom-modal";
 import LaneForm from "@/components/forms/lane-form";
 import PipelineLane from "./pipeline-lane";
+import { toast } from "@/components/ui/use-toast";
 
 type Props = {
   lanes: LaneDetail[];
@@ -23,6 +24,7 @@ type Props = {
   pipelineDetails: PipelineDetailsWithLanesCardsTagsTickets;
   updateLanesOrder: (lanes: Lane[]) => Promise<void>;
   updateTicketsOrder: (tickets: Ticket[]) => Promise<void>;
+  userRole?: string;
 };
 
 const PipelineView = ({
@@ -32,6 +34,7 @@ const PipelineView = ({
   subaccountId,
   updateLanesOrder,
   updateTicketsOrder,
+  userRole,
 }: Props) => {
   const { setOpen } = useModal();
   const router = useRouter();
@@ -61,7 +64,7 @@ const PipelineView = ({
     );
   };
 
-  const onDragEnd = (dropResult: DropResult) => {
+  const onDragEnd = async (dropResult: DropResult) => {
     console.log("Drop Result:", dropResult);
     const { destination, source, type } = dropResult;
 
@@ -81,7 +84,21 @@ const PipelineView = ({
             return { ...lane, order: idx };
           });
         setAllLanes(newLanes);
-        updateLanesOrder(newLanes);
+        try {
+          await updateLanesOrder(newLanes);
+        } catch (error: any) {
+          try {
+            const errData = JSON.parse(error.message);
+            if (errData.error === "CONFLICT") {
+              toast({
+                variant: "destructive",
+                title: "Conflict Detected",
+                description: errData.message,
+              });
+              router.refresh();
+            }
+          } catch (e) {}
+        }
         break;
       }
       case "ticket": {
@@ -107,7 +124,21 @@ const PipelineView = ({
             });
           originLane.Tickets = newOrderedTickets;
           setAllLanes(newLanes);
-          updateTicketsOrder(newOrderedTickets);
+          try {
+            await updateTicketsOrder(newOrderedTickets);
+          } catch (error: any) {
+            try {
+              const errData = JSON.parse(error.message);
+              if (errData.error === "CONFLICT") {
+                toast({
+                  variant: "destructive",
+                  title: "Conflict Detected",
+                  description: errData.message,
+                });
+                router.refresh();
+              }
+            } catch (e) {}
+          }
           router.refresh();
         } else {
           const [currentTicket] = originLane.Tickets.splice(source.index, 1);
@@ -133,7 +164,21 @@ const PipelineView = ({
             ...destinationLane.Tickets,
             ...originLane.Tickets,
           ];
-          updateTicketsOrder(ticketsToUpdate);
+          try {
+            await updateTicketsOrder(ticketsToUpdate);
+          } catch (error: any) {
+            try {
+              const errData = JSON.parse(error.message);
+              if (errData.error === "CONFLICT") {
+                toast({
+                  variant: "destructive",
+                  title: "Conflict Detected",
+                  description: errData.message,
+                });
+                router.refresh();
+              }
+            } catch (e) {}
+          }
           router.refresh();
         }
         break;
@@ -146,10 +191,12 @@ const PipelineView = ({
       <div className="bg-white/60 dark:bg-background/60 rounded-xl p-4 use-automation-zoom-in">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl">{pipelineDetails?.name}</h1>
-          <Button className="flex items-center gap-4" onClick={handleAddLane}>
-            <Plus size={16} />
-            Create Lane
-          </Button>
+          {userRole !== "SUBACCOUNT_GUEST" && (
+            <Button className="flex items-center gap-4" onClick={handleAddLane}>
+              <Plus size={16} />
+              Create Lane
+            </Button>
+          )}
         </div>
 
         <Droppable
@@ -157,6 +204,7 @@ const PipelineView = ({
           type="lane"
           direction="horizontal"
           key={"lanes"}
+          isDropDisabled={userRole === "SUBACCOUNT_GUEST"}
         >
           {(provided, snapshot) => (
             <div
@@ -178,6 +226,7 @@ const PipelineView = ({
                   tickets={lane.Tickets}
                   setAllTickets={setAllTickets}
                   subaccountId={subaccountId}
+                  userRole={userRole}
                 />
               ))}
               {provided.placeholder}

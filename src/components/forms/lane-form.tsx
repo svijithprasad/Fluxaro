@@ -69,12 +69,15 @@ const LaneForm: React.FC<LaneFormProps> = ({
   const onSubmit = async (values: z.infer<typeof LaneFormSchema>) => {
     if (!pipelineId) return;
     try {
-      const response = await upsertLane({
-        ...values,
-        id: defaultData?.id,
-        pipelineId: pipelineId,
-        order: defaultData?.order,
-      });
+      const response = await upsertLane(
+        {
+          ...values,
+          id: defaultData?.id,
+          pipelineId: pipelineId,
+          order: defaultData?.order,
+        },
+        defaultData?.version
+      );
 
       const d = await getPipelineDetails(pipelineId);
       if (!d) return;
@@ -91,7 +94,22 @@ const LaneForm: React.FC<LaneFormProps> = ({
       });
 
       router.refresh();
-    } catch (error) {
+    } catch (error: any) {
+      try {
+        const errData = JSON.parse(error.message);
+        if (errData.error === "CONFLICT") {
+          toast({
+            variant: "destructive",
+            title: "Conflict Detected",
+            description: errData.message,
+          });
+          router.refresh();
+          setClose();
+          return;
+        }
+      } catch (e) {
+        // Not a JSON error
+      }
       toast({
         variant: "destructive",
         title: "Oppse!",

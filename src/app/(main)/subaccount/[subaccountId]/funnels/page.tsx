@@ -1,4 +1,4 @@
-import { getFunnels } from "@/lib/queries";
+import { getAuthUserDetails, getFunnels } from "@/lib/queries";
 import React from "react";
 import { Plus } from "lucide-react";
 import FunnelsDataTable from "./data-table";
@@ -8,16 +8,19 @@ import BlurPage from "@/components/global/blur-page";
 
 const Funnels = async ({ params }: { params: { subaccountId: string } }) => {
   const funnels = await getFunnels(params.subaccountId);
+  const user = await getAuthUserDetails();
   if (!funnels) return null;
 
   return (
     <BlurPage>
       <FunnelsDataTable
         actionButtonText={
-          <>
-            <Plus size={15} />
-            Create Funnel
-          </>
+          user?.role !== "SUBACCOUNT_GUEST" ? (
+            <>
+              <Plus size={15} />
+              Create Funnel
+            </>
+          ) : null
         }
         modalChildren={<FunnelForm subAccountId={params.subaccountId} />}
         filterValue="name"

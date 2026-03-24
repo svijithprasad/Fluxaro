@@ -58,6 +58,7 @@ type Props = {
   allTickets: TicketWithTags;
   index: number;
   laneId: string; 
+  userRole?: string;
 };
 
 const PipelineTicket = ({
@@ -67,6 +68,7 @@ const PipelineTicket = ({
   subAccountId,
   ticket,
   laneId,
+  userRole,
 }: Props) => {
   const router = useRouter();
   const { setOpen, data } = useModal();
@@ -124,7 +126,7 @@ const PipelineTicket = ({
   };
 
   return (
-    <Draggable index={index} draggableId={ticket.id.toString()}>
+    <Draggable index={index} draggableId={ticket.id.toString()} isDragDisabled={userRole === "SUBACCOUNT_GUEST"}>
       {(provided, snapshot) => (
         <div
           {...provided.draggableProps}
@@ -148,11 +150,13 @@ const PipelineTicket = ({
                 <CardHeader className="p-[12px]">
                   <CardTitle className="flex items-center justify-between">
                     <span className="text-lg w-full">{ticket.name}</span>
-                    <DropdownMenuTrigger asChild>
-                      <button className="ml-2 p-1 hover:bg-muted rounded transition-colors">
-                        <MoreHorizontalIcon className="text-muted-foreground" />
-                      </button>
-                    </DropdownMenuTrigger>
+                    {userRole !== "SUBACCOUNT_GUEST" && (
+                      <DropdownMenuTrigger asChild>
+                        <button className="ml-2 p-1 hover:bg-muted rounded transition-colors">
+                          <MoreHorizontalIcon className="text-muted-foreground" />
+                        </button>
+                      </DropdownMenuTrigger>
+                    )}
                   </CardTitle>
                   <span className="text-muted-foreground text-xs">
                     {new Date().toLocaleDateString()}
@@ -232,7 +236,7 @@ const PipelineTicket = ({
                     {!!ticket.value &&
                       new Intl.NumberFormat(undefined, {
                         style: "currency",
-                        currency: "USD",
+                        currency: "INR",
                       }).format(+ticket.value)}
                   </span>
                 </CardFooter>

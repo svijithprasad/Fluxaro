@@ -23,19 +23,23 @@ const PipelineSettings = ({
   pipelineId,
   subaccountId,
   pipelines,
+  userRole,
 }: {
   pipelineId: string;
   subaccountId: string;
   pipelines: Pipeline[];
+  userRole?: string;
 }) => {
   const router = useRouter();
   return (
     <AlertDialog>
       <div className="use-automation-zoom-in">
         <div className="flex items-center justify-between mb-4">
-          <AlertDialogTrigger asChild>
-            <Button variant={"destructive"}>Delete Pipeline</Button>
-          </AlertDialogTrigger>
+          {userRole !== "SUBACCOUNT_GUEST" && (
+            <AlertDialogTrigger asChild>
+              <Button variant={"destructive"}>Delete Pipeline</Button>
+            </AlertDialogTrigger>
+          )}
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
@@ -82,6 +86,7 @@ const PipelineSettings = ({
         <CreatePipelineForm
           subAccountId={subaccountId}
           defaultData={pipelines.find((p) => p.id === pipelineId)}
+          userRole={userRole}
         />
       </div>
     </AlertDialog>

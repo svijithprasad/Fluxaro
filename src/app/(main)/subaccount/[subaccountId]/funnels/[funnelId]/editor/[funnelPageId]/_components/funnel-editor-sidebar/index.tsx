@@ -15,6 +15,7 @@ import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
 import SettingsTab from "./tabs/settings-tab";
 import MediaBucketTab from "./tabs/media-bucket-tab";
 import ComponentsTab from "./tabs/components-tab";
+import LayersTab from "./tabs/layers-tab";
 
 type Props = {
   subaccountId: string;
@@ -69,6 +70,15 @@ const FunnelEditorSidebar = ({ subaccountId }: Props) => {
                   </SheetDescription>
                 </SheetHeader>
                 <ComponentsTab />
+              </TabsContent>
+              <TabsContent value="Layers">
+                <SheetHeader className="text-left p-6 ">
+                  <SheetTitle>Layers</SheetTitle>
+                  <SheetDescription>
+                    View and select elements in your page
+                  </SheetDescription>
+                </SheetHeader>
+                <LayersTab />
               </TabsContent>
             </div>
           </SheetContent>

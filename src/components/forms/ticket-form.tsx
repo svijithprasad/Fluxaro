@@ -112,21 +112,21 @@ const TicketForm = ({ getNewTicket, laneId, subaccountId }: Props) => {
         setAssignedTo(""); // Reset to unassigned if none exists
       }
 
-      const fetchData = async () => {
-        const response = await searchContacts(
-          defaultData.ticket?.Customer?.name || ""
-        );
-        setContactList(response);
-      };
-
-      if (defaultData.ticket?.Customer?.name) fetchData();
-      else setContactList([]);
-
       if (defaultData.ticket.Tags) {
         setTags(defaultData.ticket.Tags);
       }
     }
-  }, [defaultData, form]);
+
+    const fetchData = async () => {
+      const response = await searchContacts(
+        defaultData.ticket?.Customer?.name || "",
+        subaccountId
+      );
+      setContactList(response);
+    };
+
+    fetchData();
+  }, [defaultData, form, subaccountId]);
 
   const onSubmit = async (values: z.infer<typeof TicketFormSchema>) => {
     // if (!laneId) return;
@@ -148,7 +148,8 @@ const TicketForm = ({ getNewTicket, laneId, subaccountId }: Props) => {
           assignedUserId: assignedTo === "" ? null : assignedTo,
           ...(contact === "" ? { customerId: null } : { customerId: contact }),
         },
-        tags
+        tags,
+        defaultData.ticket?.version
       );
 
       await saveActivityLogsNotification({
@@ -163,7 +164,22 @@ const TicketForm = ({ getNewTicket, laneId, subaccountId }: Props) => {
       });
       if (response) getNewTicket(response);
       router.refresh();
-    } catch (error) {
+    } catch (error: any) {
+      try {
+        const errData = JSON.parse(error.message);
+        if (errData.error === "CONFLICT") {
+          toast({
+            variant: "destructive",
+            title: "Conflict Detected",
+            description: errData.message,
+          });
+          router.refresh();
+          setClose();
+          return;
+        }
+      } catch (e) {
+        // Not a JSON error
+      }
       toast({
         variant: "destructive",
         title: "Oppse!",
@@ -299,7 +315,8 @@ const TicketForm = ({ getNewTicket, laneId, subaccountId }: Props) => {
                       saveTimerRef.current = setTimeout(async () => {
                         const response = await searchContacts(
                           //@ts-ignore
-                          value.target.value
+                          value.target.value,
+                          subaccountId
                         );
                         setContactList(response);
                         setSearch("");

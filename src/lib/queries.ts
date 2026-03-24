@@ -4,6 +4,7 @@ import { clerkClient, currentUser } from "@clerk/nextjs/server";
 import { db } from "./db";
 import { redirect } from "next/navigation";
 import { SIGN_IN, SUBACCOUNT_USER } from "./constants";
+import { checkLimit } from "./subscription";
 import {
   Agency,
   Lane,
@@ -45,6 +46,7 @@ export const getAuthUserDetails = async () => {
           agencyLogo: true,
           companyEmail: true,
           companyPhone: true,
+          whiteLabel: true,
           address: true,
           city: true,
           state: true,
@@ -52,6 +54,8 @@ export const getAuthUserDetails = async () => {
           zipCode: true,
           goal: true,
           connectAccountId: true,
+          createdAt: true,
+          updatedAt: true,
           SidebarOption: true,
           SubAccount: {
             select: {
@@ -376,6 +380,7 @@ export const upsertAgency = async (agency: Agency) => {
         create: [
           { name: "Dashboard", icon: "category", link: `/agency/${agency.id}` },
           { name: "Launchpad", icon: "clipboardIcon", link: `/agency/${agency.id}/launchpad` },
+          { name: "Billing", icon: "payment", link: `/agency/${agency.id}/billing` },
           { name: "Settings", icon: "settings", link: `/agency/${agency.id}/settings` },
           { name: "Sub Accounts", icon: "person", link: `/agency/${agency.id}/all-subaccounts` },
           { name: "Team", icon: "shield", link: `/agency/${agency.id}/team` },
@@ -405,6 +410,7 @@ export const getNotificationAndUser = async (agencyId: string, limit: number = 2
         id: true,
         notification: true,
         createdAt: true,
+        subAccountId: true,
         User: {
           select: {
             id: true,
@@ -426,6 +432,26 @@ export const getNotificationAndUser = async (agencyId: string, limit: number = 2
 
 export const upsertSubAccount = async (subAccount: SubAccount) => {
   if (!subAccount.companyEmail) return null;
+
+  // Check tier limit for sub accounts (only on create, not update)
+  const existingSubAccount = await db.subAccount.findUnique({
+    where: { id: subAccount.id },
+  });
+  if (!existingSubAccount) {
+    const limitCheck = await checkLimit(subAccount.agencyId, "subAccounts");
+    if (!limitCheck.allowed) {
+      throw new Error(
+        JSON.stringify({
+          error: "LIMIT_REACHED",
+          resource: "Sub Accounts",
+          plan: limitCheck.plan,
+          current: limitCheck.current,
+          limit: limitCheck.limit,
+          agencyId: subAccount.agencyId,
+        })
+      );
+    }
+  }
 
   const agencyOwner = await db.user.findFirst({
     where: { Agency: { id: subAccount.agencyId }, role: "AGENCY_OWNER" },
@@ -586,6 +612,13 @@ export const deleteUser = async (userId: string) => {
   return deletedUser;
 };
 
+export const deleteInvitation = async (invitationId: string) => {
+  const response = await db.invitation.delete({
+    where: { id: invitationId },
+  })
+  return response
+}
+
 export const getUser = async (id: string) => {
   const user = await db.user.findUnique({
     where: {
@@ -602,33 +635,84 @@ export const sendInvitation = async (
   agencyId: string
 ) => {
   try {
-    // Create an invitation in your database
-    const response = await db.invitation.create({
-      data: { email, agencyId, role },
-    });
+    const limitCheck = await checkLimit(agencyId, 'teamMembers')
+    if (!limitCheck.allowed) {
+      throw new Error(
+        JSON.stringify({
+          error: 'LIMIT_REACHED',
+          resource: 'Team Members',
+          plan: limitCheck.plan,
+          current: limitCheck.current,
+          limit: limitCheck.limit,
+          agencyId: agencyId,
+        })
+      )
+    }
+
+    // Check if user is already a member of this agency
+    const userExists = await db.user.findUnique({
+      where: { email },
+    })
+
+    if (userExists && userExists.agencyId === agencyId) {
+      throw new Error('User is already a member of this agency')
+    }
+
+    // Create or update an invitation in your database
+    const response = await db.invitation.upsert({
+      where: { email },
+      update: { role, status: 'PENDING' },
+      create: { email, agencyId, role },
+    })
 
     // Create an invitation using Clerk
-    const invitation = await clerkClient.invitations.createInvitation({
-      emailAddress: email,
-      redirectUrl: process.env.NEXT_PUBLIC_URL,
-      publicMetadata: {
-        throughInvitation: true,
-        role,
-      },
-    });
+    try {
+      await clerkClient.invitations.createInvitation({
+        emailAddress: email,
+        redirectUrl: process.env.NEXT_PUBLIC_URL,
+        publicMetadata: {
+          throughInvitation: true,
+          role,
+        },
+      })
+    } catch (clerkError: any) {
+      console.log('Clerk invitation error:', clerkError)
+      // If user already exists in Clerk, it's fine, we still want the DB invitation
+      // but if it's another error we might want to know.
+      // Clerk throws if user already exists or if there's a pending invitation.
+    }
 
-    // If Clerk invitation is successful, return the database response
-    return response;
+    return response
   } catch (error) {
-    console.log("Error sending invitation:", error);
-    throw error;
+    console.log('Error sending invitation:', error)
+    throw error
   }
-};
+}
 
 export const createMedia = async (
   subAccountId: string,
   mediaFiles: CreateMediaType
 ) => {
+  const subAccount = await db.subAccount.findUnique({
+    where: { id: subAccountId },
+    select: { agencyId: true },
+  });
+  if (subAccount) {
+    const limitCheck = await checkLimit(subAccount.agencyId, "mediaUploads");
+    if (!limitCheck.allowed) {
+      throw new Error(
+        JSON.stringify({
+          error: "LIMIT_REACHED",
+          resource: "Media Uploads",
+          plan: limitCheck.plan,
+          current: limitCheck.current,
+          limit: limitCheck.limit,
+          agencyId: subAccount.agencyId,
+        })
+      );
+    }
+  }
+
   const response = await db.media.create({
     data: {
       link: mediaFiles.link,
@@ -637,6 +721,69 @@ export const createMedia = async (
     },
   });
   return response;
+};
+
+export const downgradeSubscription = async (agencyId: string, newPlan: "FREE" | "BASIC" | "UNLIMITED") => {
+  try {
+    const authUser = await currentUser();
+    if (!authUser) return { error: "Unauthorized" };
+    
+    const { TIER_LIMITS } = await import("./subscription");
+    const limits = TIER_LIMITS[newPlan];
+
+    // Check SubAccounts
+    const subAccountCount = await db.subAccount.count({ where: { agencyId } });
+    if (subAccountCount > limits.subAccounts) {
+      return { error: `Cannot downgrade: You have ${subAccountCount} Sub Accounts, but the ${newPlan} plan only allows ${limits.subAccounts}.` };
+    }
+
+    // Check Team Members
+    const teamMembersCount = await db.user.count({ where: { agencyId } });
+    if (teamMembersCount > limits.teamMembers) {
+      return { error: `Cannot downgrade: You have ${teamMembersCount} Team Members, but the ${newPlan} plan only allows ${limits.teamMembers}.` };
+    }
+
+    // Check Media Uploads, Funnels, and Pipelines per SubAccount
+    const subAccounts = await db.subAccount.findMany({
+      where: { agencyId },
+      select: { id: true, name: true, _count: { select: { Funnels: true, Pipeline: true } } },
+    });
+    const subAccountIds = subAccounts.map((s) => s.id);
+    
+    if (subAccountIds.length > 0) {
+      const mediaUploadsCount = await db.media.count({
+        where: { subAccountId: { in: subAccountIds } },
+      });
+      if (mediaUploadsCount > limits.mediaUploads) {
+        return { error: `Cannot downgrade: You have ${mediaUploadsCount} Media Uploads, but the ${newPlan} plan only allows ${limits.mediaUploads}.` };
+      }
+    }
+
+    for (const sa of subAccounts) {
+      if (sa._count.Funnels > limits.funnelsPerSubAccount) {
+        return { error: `Cannot downgrade: Sub Account '${sa.name}' has ${sa._count.Funnels} Funnels. The ${newPlan} plan allows a maximum of ${limits.funnelsPerSubAccount} funnels per Sub Account.` };
+      }
+      if (sa._count.Pipeline > limits.pipelinesPerSubAccount) {
+        return { error: `Cannot downgrade: Sub Account '${sa.name}' has ${sa._count.Pipeline} Pipelines. The ${newPlan} plan allows a maximum of ${limits.pipelinesPerSubAccount} pipelines per Sub Account.` };
+      }
+    }
+
+    // Update subscription
+    await db.subscription.update({
+      where: { agencyId },
+      data: {
+        plan: newPlan,
+        active: true,
+        razorpaySubscriptionId: newPlan === "FREE" ? null : undefined,
+        currentPeriodEndDate: newPlan === "FREE" ? null : undefined,
+      },
+    });
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error("Downgrade Error", error);
+    return { error: "An unexpected error occurred during downgrade." };
+  }
 };
 
 export const getMedia = async (subaccountId: string) => {
@@ -693,6 +840,12 @@ export const getLanesWithTicketAndTags = async (pipelineId: string, ticketsLimit
           description: true,
           value: true,
           order: true,
+          laneId: true,
+          customerId: true,
+          assignedUserId: true,
+          createdAt: true,
+          updatedAt: true,
+          version: true,
           Tags: {
             select: {
               id: true,
@@ -713,6 +866,7 @@ export const getLanesWithTicketAndTags = async (pipelineId: string, ticketsLimit
               id: true,
               name: true,
               email: true,
+              createdAt: true,
             },
           },
         },
@@ -725,11 +879,53 @@ export const getLanesWithTicketAndTags = async (pipelineId: string, ticketsLimit
 export const upsertFunnel = async (
   subaccountId: string,
   funnel: z.infer<typeof CreateFunnelFormSchema> & { liveProducts: string },
-  funnelId: string
+  funnelId: string,
+  expectedVersion?: number
 ) => {
+  // Check tier limit for funnels per subaccount (only on create)
+  const existingFunnel = await db.funnel.findUnique({ where: { id: funnelId } });
+  if (!existingFunnel) {
+    const subAccount = await db.subAccount.findUnique({
+      where: { id: subaccountId },
+      select: { agencyId: true },
+    });
+    if (subAccount) {
+      const limitCheck = await checkLimit(
+        subAccount.agencyId,
+        "funnelsPerSubAccount",
+        subaccountId
+      );
+      if (!limitCheck.allowed) {
+        throw new Error(
+          JSON.stringify({
+            error: "LIMIT_REACHED",
+            resource: "Funnels",
+            plan: limitCheck.plan,
+            current: limitCheck.current,
+            limit: limitCheck.limit,
+            agencyId: subAccount.agencyId,
+          })
+        );
+      }
+    }
+  }
+
+  // Optimistic concurrency check on update
+  if (existingFunnel && expectedVersion !== undefined) {
+    if (existingFunnel.version !== expectedVersion) {
+      throw new Error(
+        JSON.stringify({
+          error: "CONFLICT",
+          message:
+            "This funnel was modified by another user. Please refresh and try again.",
+        })
+      );
+    }
+  }
+
   const response = await db.funnel.upsert({
     where: { id: funnelId },
-    update: funnel,
+    update: { ...funnel, version: { increment: 1 } },
     create: {
       ...funnel,
       id: funnelId || v4(),
@@ -741,11 +937,62 @@ export const upsertFunnel = async (
 };
 
 export const upsertPipeline = async (
-  pipeline: Prisma.PipelineUncheckedCreateWithoutLaneInput
+  pipeline: Prisma.PipelineUncheckedCreateWithoutLaneInput,
+  expectedVersion?: number
 ) => {
+  // Check tier limit for pipelines per subaccount (only on create)
+  if (pipeline.subAccountId) {
+    const existingPipeline = pipeline.id
+      ? await db.pipeline.findUnique({ where: { id: pipeline.id } })
+      : null;
+    if (!existingPipeline) {
+      const subAccount = await db.subAccount.findUnique({
+        where: { id: pipeline.subAccountId },
+        select: { agencyId: true },
+      });
+      if (subAccount) {
+        const limitCheck = await checkLimit(
+          subAccount.agencyId,
+          "pipelinesPerSubAccount",
+          pipeline.subAccountId
+        );
+        if (!limitCheck.allowed) {
+          throw new Error(
+            JSON.stringify({
+              error: "LIMIT_REACHED",
+              resource: "Pipelines",
+              plan: limitCheck.plan,
+              current: limitCheck.current,
+              limit: limitCheck.limit,
+              agencyId: subAccount.agencyId,
+            })
+          );
+        }
+      }
+    }
+  }
+
+  // Optimistic concurrency check on update
+  if (pipeline.id && expectedVersion !== undefined) {
+    const current = await db.pipeline.findUnique({
+      where: { id: pipeline.id },
+      select: { version: true },
+    });
+    if (current && current.version !== expectedVersion) {
+      throw new Error(
+        JSON.stringify({
+          error: "CONFLICT",
+          message:
+            "This pipeline was modified by another user. Please refresh and try again.",
+        })
+      );
+    }
+  }
+
+  const { version: _v, ...pipelineData } = pipeline as any;
   const response = await db.pipeline.upsert({
     where: { id: pipeline.id || v4() },
-    update: pipeline,
+    update: { ...pipelineData, version: { increment: 1 } },
     create: pipeline,
   });
 
@@ -761,10 +1008,27 @@ export const deletePipeline = async (pipelineId: string) => {
 
 export const updateLanesOrder = async (lanes: Lane[]) => {
   try {
+    // Optimistic concurrency check for each lane
+    for (const lane of lanes) {
+      const current = await db.lane.findUnique({
+        where: { id: lane.id },
+        select: { version: true },
+      });
+      if (current && current.version !== lane.version) {
+        throw new Error(
+          JSON.stringify({
+            error: "CONFLICT",
+            message:
+              "Lane order was modified by another user. Please refresh and try again.",
+          })
+        );
+      }
+    }
+
     const updateTrans = lanes.map((lane) =>
       db.lane.update({
         where: { id: lane.id },
-        data: { order: lane.order },
+        data: { order: lane.order, version: { increment: 1 } },
       })
     );
 
@@ -772,17 +1036,36 @@ export const updateLanesOrder = async (lanes: Lane[]) => {
     console.log("🟢 Reordered Lane Successfully 🟢");
   } catch (error: any) {
     console.error("🔴 Failed while Reordering Lane 🔴", error.message);
+    throw error;
   }
 };
 
 export const updateTicketsOrder = async (tickets: Ticket[]) => {
   try {
+    // Optimistic concurrency check for each ticket
+    for (const ticket of tickets) {
+      const current = await db.ticket.findUnique({
+        where: { id: ticket.id },
+        select: { version: true },
+      });
+      if (current && current.version !== ticket.version) {
+        throw new Error(
+          JSON.stringify({
+            error: "CONFLICT",
+            message:
+              "Ticket order was modified by another user. Please refresh and try again.",
+          })
+        );
+      }
+    }
+
     const updateTrans = tickets.map((ticket) =>
       db.ticket.update({
         where: { id: ticket.id },
         data: {
           order: ticket.order,
           laneId: ticket.laneId,
+          version: { increment: 1 },
         },
       })
     );
@@ -791,10 +1074,14 @@ export const updateTicketsOrder = async (tickets: Ticket[]) => {
     console.log("🟢 Reordered Tickets Successfully 🟢");
   } catch (error: any) {
     console.error("🔴 Failed while Reordering Ticket 🔴", error.message);
+    throw error;
   }
 };
 
-export const upsertLane = async (lane: Prisma.LaneUncheckedCreateInput) => {
+export const upsertLane = async (
+  lane: Prisma.LaneUncheckedCreateInput,
+  expectedVersion?: number
+) => {
   let order: number;
 
   if (!lane.order) {
@@ -809,9 +1096,27 @@ export const upsertLane = async (lane: Prisma.LaneUncheckedCreateInput) => {
     order = lane.order;
   }
 
+  // Optimistic concurrency check on update
+  if (lane.id && expectedVersion !== undefined) {
+    const current = await db.lane.findUnique({
+      where: { id: lane.id as string },
+      select: { version: true },
+    });
+    if (current && current.version !== expectedVersion) {
+      throw new Error(
+        JSON.stringify({
+          error: "CONFLICT",
+          message:
+            "This lane was modified by another user. Please refresh and try again.",
+        })
+      );
+    }
+  }
+
+  const { version: _v, ...laneData } = lane as any;
   const response = await db.lane.upsert({
     where: { id: lane.id || v4() },
-    update: lane,
+    update: { ...laneData, version: { increment: 1 } },
     create: { ...lane, order },
   });
 
@@ -864,9 +1169,10 @@ export const getSubAccountTeamMembers = async (subAccountId: string) => {
   return subAccountUserWithAccess;
 };
 
-export const searchContacts = async (searchTerms: string) => {
+export const searchContacts = async (searchTerms: string, subAccountId: string) => {
   const response = await db.contact.findMany({
     where: {
+      subAccountId,
       name: {
         contains: searchTerms,
       },
@@ -878,7 +1184,8 @@ export const searchContacts = async (searchTerms: string) => {
 
 export const upsertTicket = async (
   ticket: Prisma.TicketUncheckedCreateInput,
-  tags: Tag[]
+  tags: Tag[],
+  expectedVersion?: number
 ) => {
   let order: number;
 
@@ -893,9 +1200,27 @@ export const upsertTicket = async (
     order = ticket.order;
   }
 
+  // Optimistic concurrency check on update
+  if (ticket.id && expectedVersion !== undefined) {
+    const current = await db.ticket.findUnique({
+      where: { id: ticket.id as string },
+      select: { version: true },
+    });
+    if (current && current.version !== expectedVersion) {
+      throw new Error(
+        JSON.stringify({
+          error: "CONFLICT",
+          message:
+            "This ticket was modified by another user. Please refresh and try again.",
+        })
+      );
+    }
+  }
+
+  const { version: _v, ...ticketData } = ticket as any;
   const response = await db.ticket.upsert({
     where: { id: ticket.id || v4() },
-    update: { ...ticket, Tags: { set: tags.map((tag) => ({ id: tag.id })) } },
+    update: { ...ticketData, Tags: { set: tags.map((tag) => ({ id: tag.id })) }, version: { increment: 1 } },
     create: { ...ticket, Tags: { connect: tags.map((tag) => ({ id: tag.id })) }, order },
     include: {
       Assigned: true,
@@ -947,11 +1272,30 @@ export const getTagsForSubaccount = async (subaccountId: string) => {
 
 export const upsertTag = async (
   subaccountId: string,
-  tag: Prisma.TagUncheckedCreateInput
+  tag: Prisma.TagUncheckedCreateInput,
+  expectedVersion?: number
 ) => {
+  // Optimistic concurrency check on update
+  if (tag.id && expectedVersion !== undefined) {
+    const current = await db.tag.findUnique({
+      where: { id: tag.id as string },
+      select: { version: true },
+    });
+    if (current && current.version !== expectedVersion) {
+      throw new Error(
+        JSON.stringify({
+          error: "CONFLICT",
+          message:
+            "This tag was modified by another user. Please refresh and try again.",
+        })
+      );
+    }
+  }
+
+  const { version: _v, ...tagData } = tag as any;
   const response = await db.tag.upsert({
     where: { id: tag.id || v4(), subAccountId: subaccountId },
-    update: tag,
+    update: { ...tagData, version: { increment: 1 } },
     create: { ...tag, subAccountId: subaccountId },
   });
 
@@ -959,11 +1303,30 @@ export const upsertTag = async (
 };
 
 export const upsertContact = async (
-  contact: Prisma.ContactUncheckedCreateInput
+  contact: Prisma.ContactUncheckedCreateInput,
+  expectedVersion?: number
 ) => {
+  // Optimistic concurrency check on update
+  if (contact.id && expectedVersion !== undefined) {
+    const current = await db.contact.findUnique({
+      where: { id: contact.id as string },
+      select: { version: true },
+    });
+    if (current && current.version !== expectedVersion) {
+      throw new Error(
+        JSON.stringify({
+          error: "CONFLICT",
+          message:
+            "This contact was modified by another user. Please refresh and try again.",
+        })
+      );
+    }
+  }
+
+  const { version: _v, ...contactData } = contact as any;
   const response = await db.contact.upsert({
     where: { id: contact.id || v4() },
-    update: contact,
+    update: { ...contactData, version: { increment: 1 } },
     create: contact,
   });
 
@@ -1008,12 +1371,32 @@ export const updateFunnelProducts = async (
 export const upsertFunnelPage = async (
   subaccountId: string,
   funnelPage: UpsertFunnelPage,
-  funnelId: string
+  funnelId: string,
+  expectedVersion?: number
 ) => {
   if (!subaccountId || !funnelId) return;
+
+  // Optimistic concurrency check on update
+  if (funnelPage.id && expectedVersion !== undefined) {
+    const current = await db.funnelPage.findUnique({
+      where: { id: funnelPage.id },
+      select: { version: true },
+    });
+    if (current && current.version !== expectedVersion) {
+      throw new Error(
+        JSON.stringify({
+          error: "CONFLICT",
+          message:
+            "This funnel page was modified by another user. Please refresh and try again.",
+        })
+      );
+    }
+  }
+
+  const { version: _v, ...funnelPageData } = funnelPage as any;
   const response = await db.funnelPage.upsert({
     where: { id: funnelPage.id || "" },
-    update: { ...funnelPage },
+    update: { ...funnelPageData, version: { increment: 1 } },
     create: {
       ...funnelPage,
       content: funnelPage.content

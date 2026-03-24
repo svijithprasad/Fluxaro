@@ -38,121 +38,146 @@ import { Copy, Edit, MoreHorizontal, Trash } from "lucide-react";
 import { useModal } from "@/providers/modal-provider";
 import UserDetails from "@/components/forms/user-details";
 
-import { deleteUser, getUser } from "@/lib/queries";
+import { deleteInvitation, deleteUser, getUser } from "@/lib/queries";
 import { useToast } from "@/components/ui/use-toast";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { UsersWithAgencySubAccountPermissionsSidebarOptions } from "@/lib/types";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import CustomModal from "@/components/global/custom-modal";
 
-export const columns: ColumnDef<UsersWithAgencySubAccountPermissionsSidebarOptions>[] =
-  [
-    {
-      accessorKey: "id",
-      header: "",
-      cell: () => {
-        return null;
-      },
+export const columns: ColumnDef<
+  UsersWithAgencySubAccountPermissionsSidebarOptions & { status: string }
+>[] = [
+  {
+    accessorKey: "id",
+    header: "",
+    cell: () => {
+      return null;
     },
-    {
-      accessorKey: "name",
-      header: "Name",
-      cell: ({ row }) => {
-        const avatarUrl = row.getValue("avatarUrl") as string;
-        return (
-          <div className="flex items-center gap-4">
-            <div className="h-11 w-11 relative flex-none">
-              <Image
-                src={avatarUrl}
-                fill
-                className="rounded-full object-cover"
-                alt="avatar image"
-              />
-            </div>
-            <span>{row.getValue("name")}</span>
+  },
+  {
+    accessorKey: "name",
+    header: "Name",
+    cell: ({ row }) => {
+      const avatarUrl = row.getValue("avatarUrl") as string;
+      const name = row.getValue("name") as string;
+      return (
+        <div className="flex items-center gap-4">
+          <Avatar className="h-11 w-11">
+            <AvatarImage src={avatarUrl} alt="avatar image" />
+            <AvatarFallback className="bg-primary text-white">
+              {name?.slice(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex flex-col">
+            <span>{name}</span>
+            <span className="text-muted-foreground text-xs">
+              {row.getValue("email")}
+            </span>
           </div>
-        );
-      },
+        </div>
+      );
     },
-    {
-      accessorKey: "avatarUrl",
-      header: "",
-      cell: () => {
-        return null;
-      },
+  },
+  {
+    accessorKey: "avatarUrl",
+    header: "",
+    cell: () => {
+      return null;
     },
-    { accessorKey: "email", header: "Email" },
+  },
+  { accessorKey: "email", header: "Email" },
 
-    {
-      accessorKey: "SubAccount",
-      header: "Owned Accounts",
-      cell: ({ row }) => {
-        const isAgencyOwner = row.getValue("role") === "AGENCY_OWNER";
-        const ownedAccounts = row.original?.Permissions.filter(
-          (per) => per.access
-        );
+  {
+    accessorKey: "SubAccount",
+    header: "Owned Accounts",
+    cell: ({ row }) => {
+      const isAgencyOwner = row.getValue("role") === "AGENCY_OWNER";
+      const ownedAccounts = row.original?.Permissions.filter(
+        (per) => per.access
+      );
 
-        if (isAgencyOwner)
-          return (
-            <div className="flex flex-col items-start">
-              <div className="flex flex-col gap-2">
-                <Badge className="bg-slate-600 whitespace-nowrap">
-                  Agency - {row?.original?.Agency?.name}
-                </Badge>
-              </div>
-            </div>
-          );
+      if (isAgencyOwner)
         return (
           <div className="flex flex-col items-start">
             <div className="flex flex-col gap-2">
-              {ownedAccounts?.length ? (
-                ownedAccounts.map((account) => (
-                  <Badge
-                    key={account.id}
-                    className="bg-slate-600 w-fit whitespace-nowrap"
-                  >
-                    Sub Account - {account.SubAccount.name}
-                  </Badge>
-                ))
-              ) : (
-                <div className="text-muted-foreground">No Access Yet</div>
-              )}
+              <Badge className="bg-slate-600 whitespace-nowrap">
+                Agency - {row?.original?.Agency?.name}
+              </Badge>
             </div>
           </div>
         );
-      },
+      return (
+        <div className="flex flex-col items-start">
+          <div className="flex flex-col gap-2">
+            {ownedAccounts?.length ? (
+              ownedAccounts.map((account) => (
+                <Badge
+                  key={account.id}
+                  className="bg-slate-600 w-fit whitespace-nowrap"
+                >
+                  Sub Account - {account.SubAccount.name}
+                </Badge>
+              ))
+            ) : (
+              <div className="text-muted-foreground">No Access Yet</div>
+            )}
+          </div>
+        </div>
+      );
     },
-    {
-      accessorKey: "role",
-      header: "Role",
-      cell: ({ row }) => {
-        const role: Role = row.getValue("role");
-        return (
-          <Badge
-            className={clsx({
-              "bg-emerald-500": role === "AGENCY_OWNER",
-              "bg-orange-400": role === "AGENCY_ADMIN",
-              "bg-primary": role === "SUBACCOUNT_USER",
-              "bg-muted": role === "SUBACCOUNT_GUEST",
-            })}
-          >
-            {role}
-          </Badge>
-        );
-      },
+  },
+  {
+    accessorKey: "role",
+    header: "Role",
+    cell: ({ row }) => {
+      const role: Role = row.getValue("role");
+      return (
+        <Badge
+          className={clsx({
+            "bg-emerald-500": role === "AGENCY_OWNER",
+            "bg-orange-400": role === "AGENCY_ADMIN",
+            "bg-primary": role === "SUBACCOUNT_USER",
+            "bg-muted": role === "SUBACCOUNT_GUEST",
+          })}
+        >
+          {role}
+        </Badge>
+      );
     },
-    {
-      id: "actions",
-      cell: ({ row }) => {
-        const rowData = row.original;
+  },
+  {
+    accessorKey: "status",
+    header: "Status",
+    cell: ({ row }) => {
+      const status = row.original.status;
+      return (
+        <Badge
+          className={clsx({
+            "bg-emerald-500": status === "ACTIVE",
+            "bg-orange-400": status === "PENDING",
+          })}
+        >
+          {status}
+        </Badge>
+      );
+    },
+  },
+  {
+    id: "actions",
+    cell: ({ row }) => {
+      const rowData = row.original;
 
-        return <CellActions rowData={rowData} />;
-      },
+      return <CellActions rowData={rowData} />;
     },
-  ];
+  },
+];
 
 interface CellActionsProps {
-  rowData: UsersWithAgencySubAccountPermissionsSidebarOptions;
+  rowData: UsersWithAgencySubAccountPermissionsSidebarOptions & {
+    status: string;
+  };
 }
 
 const CellActions: React.FC<CellActionsProps> = ({ rowData }) => {
@@ -183,6 +208,7 @@ const CellActions: React.FC<CellActionsProps> = ({ rowData }) => {
           <DropdownMenuSeparator />
           <DropdownMenuItem
             className="flex gap-2"
+            disabled={rowData.status === "PENDING"}
             onClick={() => {
               setOpen(
                 <CustomModal
@@ -207,7 +233,8 @@ const CellActions: React.FC<CellActionsProps> = ({ rowData }) => {
           {rowData.role !== "AGENCY_OWNER" && (
             <AlertDialogTrigger asChild>
               <DropdownMenuItem className="flex gap-2" onClick={() => {}}>
-                <Trash size={15} /> Remove User
+                <Trash size={15} />{" "}
+                {rowData.status === "PENDING" ? "Cancel Invitation" : "Remove User"}
               </DropdownMenuItem>
             </AlertDialogTrigger>
           )}
@@ -219,8 +246,9 @@ const CellActions: React.FC<CellActionsProps> = ({ rowData }) => {
             Are you absolutely sure?
           </AlertDialogTitle>
           <AlertDialogDescription className="text-left">
-            This action cannot be undone. This will permanently delete the user
-            and related data.
+            This action cannot be undone. This will permanently delete the{" "}
+            {rowData.status === "PENDING" ? "invitation" : "user"} and related
+            data.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="flex items-center">
@@ -230,12 +258,20 @@ const CellActions: React.FC<CellActionsProps> = ({ rowData }) => {
             className="bg-destructive hover:bg-destructive"
             onClick={async () => {
               setLoading(true);
-              await deleteUser(rowData.id);
-              toast({
-                title: "Deleted User",
-                description:
-                  "The user has been deleted from this agency they no longer have access to the agency",
-              });
+              if (rowData.status === "PENDING") {
+                await deleteInvitation(rowData.id);
+                toast({
+                  title: "Cancelled Invitation",
+                  description: "The invitation has been cancelled",
+                });
+              } else {
+                await deleteUser(rowData.id);
+                toast({
+                  title: "Deleted User",
+                  description:
+                    "The user has been deleted from this agency they no longer have access to the agency",
+                });
+              }
               setLoading(false);
               router.refresh();
             }}

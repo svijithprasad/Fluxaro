@@ -18,6 +18,7 @@ import { Input } from "../ui/input";
 import FileUpload from "../global/file-upload";
 import { Button } from "../ui/button";
 import { useModal } from "@/providers/modal-provider";
+import UpgradePrompt from "../global/upgrade-prompt";
 
 type Props = {
   subAccountId: string;
@@ -29,7 +30,7 @@ const formSchema = z.object({
 });
 
 const UploadMediaForm = ({ subAccountId }: Props) => {
-  const { setClose } = useModal();
+  const { setClose, setOpen } = useModal();
   const { toast } = useToast();
   const router = useRouter();
   const form = useForm<z.infer<typeof formSchema>>({
@@ -52,8 +53,24 @@ const UploadMediaForm = ({ subAccountId }: Props) => {
       });
       toast({ title: "Succes", description: "Uploaded media" });
       setClose();
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      try {
+        const errData = JSON.parse(error.message);
+        if (errData.error === "LIMIT_REACHED") {
+          setOpen(
+            <UpgradePrompt
+              resource={errData.resource}
+              current={errData.current}
+              limit={errData.limit}
+              plan={errData.plan}
+              agencyId={errData.agencyId}
+            />
+          );
+          return;
+        }
+      } catch (e) {
+        console.error(error);
+      }
       toast({
         variant: "destructive",
         title: "Failed",

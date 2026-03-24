@@ -41,6 +41,7 @@ interface CreateFunnelPageProps {
   funnelId: string;
   order: number;
   subaccountId: string;
+  userRole?: string;
 }
 
 const CreateFunnelPage: React.FC<CreateFunnelPageProps> = ({
@@ -48,6 +49,7 @@ const CreateFunnelPage: React.FC<CreateFunnelPageProps> = ({
   funnelId,
   order,
   subaccountId,
+  userRole,
 }) => {
   const { toast } = useToast();
   const router = useRouter();
@@ -83,7 +85,8 @@ const CreateFunnelPage: React.FC<CreateFunnelPageProps> = ({
           order: defaultData?.order || order,
           pathName: values.pathName || "",
         },
-        funnelId
+        funnelId,
+        defaultData?.version
       );
 
       await saveActivityLogsNotification({
@@ -100,8 +103,23 @@ const CreateFunnelPage: React.FC<CreateFunnelPageProps> = ({
       setClose();
 
       router.refresh();
-    } catch (error) {
+    } catch (error: any) {
       console.log(error);
+      try {
+        const errData = JSON.parse(error.message);
+        if (errData.error === "CONFLICT") {
+          toast({
+            variant: "destructive",
+            title: "Conflict Detected",
+            description: errData.message,
+          });
+          router.refresh();
+          setClose();
+          return;
+        }
+      } catch (e) {
+        // Not a JSON error
+      }
       toast({
         variant: "destructive",
         title: "Oppse!",
@@ -157,70 +175,72 @@ const CreateFunnelPage: React.FC<CreateFunnelPageProps> = ({
                 </FormItem>
               )}
             />
-            <div className="flex items-center gap-2">
-              <Button
-                className="w-22 self-end"
-                disabled={form.formState.isSubmitting}
-                type="submit"
-              >
-                {form.formState.isSubmitting ? <Loading /> : "Save Page"}
-              </Button>
-
-              {defaultData?.id && (
+            {userRole !== "SUBACCOUNT_GUEST" && (
+              <div className="flex items-center gap-2">
                 <Button
-                  variant={"outline"}
-                  className="w-22 self-end border-destructive text-destructive hover:bg-destructive"
+                  className="w-22 self-end"
                   disabled={form.formState.isSubmitting}
-                  type="button"
-                  onClick={async () => {
-                    const response = await deleteFunnelePage(defaultData.id);
-                    await saveActivityLogsNotification({
-                      agencyId: undefined,
-                      description: `Deleted a funnel page | ${response?.name}`,
-                      subaccountId: subaccountId,
-                    });
-                    router.refresh();
-                  }}
+                  type="submit"
                 >
-                  {form.formState.isSubmitting ? <Loading /> : <Trash />}
+                  {form.formState.isSubmitting ? <Loading /> : "Save Page"}
                 </Button>
-              )}
-              {defaultData?.id && (
-                <Button
-                  variant={"outline"}
-                  size={"icon"}
-                  disabled={form.formState.isSubmitting}
-                  type="button"
-                  onClick={async () => {
-                    const response = await getFunnels(subaccountId);
-                    const lastFunnelPage = response.find(
-                      (funnel) => funnel.id === funnelId
-                    )?.FunnelPages.length;
 
-                    await upsertFunnelPage(
-                      subaccountId,
-                      {
-                        ...defaultData,
-                        id: v4(),
-                        order: lastFunnelPage ? lastFunnelPage : 0,
-                        visits: 0,
-                        name: `${defaultData.name} Copy`,
-                        pathName: `${defaultData.pathName}copy`,
-                        content: defaultData.content,
-                      },
-                      funnelId
-                    );
-                    toast({
-                      title: "Success",
-                      description: "Saves Funnel Page Details",
-                    });
-                    router.refresh();
-                  }}
-                >
-                  {form.formState.isSubmitting ? <Loading /> : <CopyPlusIcon />}
-                </Button>
-              )}
-            </div>
+                {defaultData?.id && (
+                  <Button
+                    variant={"outline"}
+                    className="w-22 self-end border-destructive text-destructive hover:bg-destructive"
+                    disabled={form.formState.isSubmitting}
+                    type="button"
+                    onClick={async () => {
+                      const response = await deleteFunnelePage(defaultData.id);
+                      await saveActivityLogsNotification({
+                        agencyId: undefined,
+                        description: `Deleted a funnel page | ${response?.name}`,
+                        subaccountId: subaccountId,
+                      });
+                      router.refresh();
+                    }}
+                  >
+                    {form.formState.isSubmitting ? <Loading /> : <Trash />}
+                  </Button>
+                )}
+                {defaultData?.id && (
+                  <Button
+                    variant={"outline"}
+                    size={"icon"}
+                    disabled={form.formState.isSubmitting}
+                    type="button"
+                    onClick={async () => {
+                      const response = await getFunnels(subaccountId);
+                      const lastFunnelPage = response.find(
+                        (funnel) => funnel.id === funnelId
+                      )?.FunnelPages.length;
+
+                      await upsertFunnelPage(
+                        subaccountId,
+                        {
+                          ...defaultData,
+                          id: v4(),
+                          order: lastFunnelPage ? lastFunnelPage : 0,
+                          visits: 0,
+                          name: `${defaultData.name} Copy`,
+                          pathName: `${defaultData.pathName}copy`,
+                          content: defaultData.content,
+                        },
+                        funnelId
+                      );
+                      toast({
+                        title: "Success",
+                        description: "Saves Funnel Page Details",
+                      });
+                      router.refresh();
+                    }}
+                  >
+                    {form.formState.isSubmitting ? <Loading /> : <CopyPlusIcon />}
+                  </Button>
+                )}
+              </div>
+            )}
           </form>
         </Form>
       </CardContent>

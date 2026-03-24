@@ -42,6 +42,7 @@ const SubAccountSettingsPage = async ({ params }: Props) => {
           userId={userDetails.id}
           userName={userDetails.name}
           details={subAccount}
+          userRole={userDetails.role}
         />
 
         <UserDetails

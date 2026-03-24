@@ -11,6 +11,7 @@ import { Button } from "../ui/button";
 import { ChevronsUpDown, Compass, Menu, PlusCircleIcon } from "lucide-react";
 import clsx from "clsx";
 import { AspectRatio } from "../ui/aspect-ratio";
+import { Badge } from "../ui/badge";
 import Image from "next/image";
 import { Popover, PopoverTrigger } from "../ui/popover";
 import { PopoverContent } from "@radix-ui/react-popover";
@@ -44,6 +45,7 @@ type Props = {
   details: any;
   user: any;
   id: string;
+  planMode?: string;
 };
 
 const MenuOptions = ({
@@ -54,6 +56,7 @@ const MenuOptions = ({
   subAccounts,
   user,
   defaultOpen,
+  planMode,
 }: Props) => {
   const { setOpen } = useModal();
   const [isMounted, setIsMounted] = useState(false);
@@ -111,7 +114,17 @@ const MenuOptions = ({
                 <div className="flex items-center text-left gap-2">
                   <Compass />
                   <div className="flex flex-col">
-                    {details.name}
+                    <span className="flex items-center gap-2">
+                      {details.name}
+                      {planMode && (
+                        <Badge
+                          variant={planMode === "FREE" ? "secondary" : "default"}
+                          className="text-[10px] uppercase h-5"
+                        >
+                          {planMode}
+                        </Badge>
+                      )}
+                    </span>
                     <span className="text-muted-foreground text-wrap">
                       {details.address}
                     </span>

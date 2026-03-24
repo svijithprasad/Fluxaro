@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { EditorBtns } from "@/lib/constants";
 
 import { EditorElement, useEditor } from "@/providers/editor/editor-provider";
+import { parseCssToReactStyles } from "@/lib/css-parser";
 import clsx from "clsx";
 import { Trash } from "lucide-react";
 import Link from "next/link";
@@ -31,7 +32,11 @@ const LinkComponent = (props: Props) => {
     });
   };
 
-  const styles = props.element.styles;
+  const rawStyles = props.element.styles;
+  const customCssOverrides = !Array.isArray(props.element.content)
+    ? parseCssToReactStyles(props.element.content.customCss || "")
+    : {};
+  const styles = { ...rawStyles, ...customCssOverrides };
 
   const handleDeleteElement = () => {
     dispatch({

@@ -11,7 +11,7 @@ const Page = async ({
   searchParams: { plan?: string; state: string; code: string };
 }) => {
   const agencyId = await verifyAndAcceptInvitation();
-
+  const clerkUser = await currentUser();
   console.log("AGENCY ID: ", agencyId);
 
   // Get Users details
@@ -42,7 +42,7 @@ const Page = async ({
 
   return (
     <>
-      <Navigation />
+      <Navigation user={clerkUser} />
       <div className="flex justify-center items-center mt-4 bg-muted">
         <div>
           <h1 className="text-4xl my-8">Create An Agency</h1>

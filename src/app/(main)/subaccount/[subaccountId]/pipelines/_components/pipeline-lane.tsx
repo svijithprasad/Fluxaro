@@ -41,6 +41,7 @@ interface PipelaneLaneProps {
   laneDetails: LaneDetail;
   subaccountId: string;
   index: number;
+  userRole?: string;
 }
 
 const PipelineLane: React.FC<PipelaneLaneProps> = ({
@@ -51,13 +52,14 @@ const PipelineLane: React.FC<PipelaneLaneProps> = ({
   subaccountId,
   allTickets,
   index,
+  userRole,
 }) => {
   const { setOpen } = useModal();
   const router = useRouter();
 
   const amt = new Intl.NumberFormat(undefined, {
     style: "currency",
-    currency: "USD",
+    currency: "INR",
   });
 
   const laneAmt = useMemo(() => {
@@ -116,6 +118,7 @@ const PipelineLane: React.FC<PipelaneLaneProps> = ({
       draggableId={laneDetails.id.toString()}
       index={index}
       key={laneDetails.id}
+      isDragDisabled={userRole === "SUBACCOUNT_GUEST"}
     >
       {(provided, snapshot) => (
         <div
@@ -148,9 +151,11 @@ const PipelineLane: React.FC<PipelaneLaneProps> = ({
                       <Badge className="bg-white text-black">
                         {amt.format(laneAmt)}
                       </Badge>
-                      <DropdownMenuTrigger>
-                        <MoreVertical className="text-muted-foreground cursor-pointer" />
-                      </DropdownMenuTrigger>
+                      {userRole !== "SUBACCOUNT_GUEST" && (
+                        <DropdownMenuTrigger>
+                          <MoreVertical className="text-muted-foreground cursor-pointer" />
+                        </DropdownMenuTrigger>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -160,6 +165,7 @@ const PipelineLane: React.FC<PipelaneLaneProps> = ({
                   droppableId={laneDetails.id.toString()}
                   key={laneDetails.id}
                   type="ticket"
+                  isDropDisabled={userRole === "SUBACCOUNT_GUEST"}
                 >
                   {(droppableProvided, droppableSnapshot) => (
                     <div
@@ -180,6 +186,7 @@ const PipelineLane: React.FC<PipelaneLaneProps> = ({
                           key={ticket.id.toString()}
                           index={index}
                           laneId={laneDetails.id}
+                          userRole={userRole}
                         />
                       ))}
                       {droppableProvided.placeholder}

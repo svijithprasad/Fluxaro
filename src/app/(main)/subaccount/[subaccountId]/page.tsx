@@ -37,7 +37,7 @@ type Props = {
 };
 
 const SubaccountPageId = async ({ params, searchParams }: Props) => {
-  let currency = "USD";
+  let currency = "INR";
   let sessions;
   let totalClosedSessions;
   let totalPendingSessions;
@@ -57,64 +57,66 @@ const SubaccountPageId = async ({ params, searchParams }: Props) => {
 
   if (!subaccountDetails) return;
 
-  if (subaccountDetails.connectAccountId) {
-    try {
-      const response = await stripe.accounts.retrieve({
-        stripeAccount: subaccountDetails.connectAccountId,
-      });
-      currency = response.default_currency?.toUpperCase() || "USD";
-      const checkoutSessions = await stripe.checkout.sessions.list(
-        { created: { gte: startDate, lte: endDate }, limit: 100 },
-        {
-          stripeAccount: subaccountDetails.connectAccountId,
+  const pipelines = await db.pipeline.findMany({
+    where: { subAccountId: params.subaccountId },
+    include: {
+      Lane: {
+        orderBy: { order: "asc" },
+        include: {
+          Tickets: {
+            include: { Customer: true }
+          }
         }
-      );
-      sessions = checkoutSessions.data.map((session) => ({
-        id: session.id,
-        created: new Date(session.created).toLocaleDateString(),
-        amount_total: session.amount_total ? session.amount_total / 100 : 0,
-        status: session.status,
-        customer_details: session.customer_details,
-      }));
-
-      totalClosedSessions = checkoutSessions.data
-        .filter((session) => session.status === "complete")
-        .map((session) => ({
-          id: session.id,
-          created: new Date(session.created).toLocaleDateString(),
-          amount_total: session.amount_total ? session.amount_total / 100 : 0,
-          status: session.status,
-          customer_details: session.customer_details,
-        }));
-
-      totalPendingSessions = checkoutSessions.data
-        .filter(
-          (session) => session.status === "open" || session.status === "expired"
-        )
-        .map((session) => ({
-          id: session.id,
-          created: new Date(session.created).toLocaleDateString(),
-          amount_total: session.amount_total ? session.amount_total / 100 : 0,
-          status: session.status,
-        }));
-
-      net = +totalClosedSessions
-        .reduce((total, session) => total + (session.amount_total || 0), 0)
-        .toFixed(2);
-
-      potentialIncome = +totalPendingSessions
-        .reduce((total, session) => total + (session.amount_total || 0), 0)
-        .toFixed(2);
-
-      closingRate = +(
-        (totalClosedSessions.length / checkoutSessions.data.length) *
-        100
-      ).toFixed(2);
-    } catch (error) {
-      console.error("Error fetching Stripe data:", error);
-      // Continue with default values if Stripe fetch fails
+      }
     }
-  }
+  });
+
+  let allTickets = 0;
+  totalClosedSessions = [] as any[];
+  totalPendingSessions = [] as any[];
+
+  pipelines.forEach((pipeline) => {
+    const lanes = pipeline.Lane;
+    if (lanes.length === 0) return;
+    
+    // The last lane is designated as the "Won/Closed" lane
+    const lastLaneId = lanes[lanes.length - 1].id;
+
+    lanes.forEach((lane) => {
+      lane.Tickets.forEach((ticket) => {
+        allTickets++;
+        const value = Number(ticket.value || 0);
+        
+        const mappedTicket = {
+          id: ticket.id,
+          name: ticket.name,
+          created: new Date(ticket.createdAt).toLocaleDateString(),
+          updatedAt: ticket.updatedAt,
+          amount_total: value, // for AreaChart compatibility
+          status: lane.id === lastLaneId ? "complete" : "open",
+          customer_details: { email: ticket.Customer?.email }, // for Table compatibility
+        };
+
+        if (lane.id === lastLaneId) {
+          totalClosedSessions.push(mappedTicket);
+          net += value;
+        } else {
+          totalPendingSessions.push(mappedTicket);
+          potentialIncome += value;
+        }
+      });
+    });
+  });
+
+  totalClosedSessions.sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
+  sessions = [...totalClosedSessions, ...totalPendingSessions].sort(
+    (a: any, b: any) => new Date(a.created).getTime() - new Date(b.created).getTime()
+  );
+
+  closingRate = allTickets
+    ? +((totalClosedSessions.length / allTickets) * 100).toFixed(2)
+    : 0;
 
   const funnels = await db.funnel.findMany({
     where: {
@@ -142,14 +144,14 @@ const SubaccountPageId = async ({ params, searchParams }: Props) => {
               <CardHeader>
                 <CardDescription>Income</CardDescription>
                 <CardTitle className="text-4xl">
-                  {net ? `${currency} ${net.toFixed(2)}` : `$0.00`}
+                  {net ? `${currency} ${net.toFixed(2)}` : `₹0.00`}
                 </CardTitle>
                 <small className="text-xs text-muted-foreground">
                   For the year {currentYear}
                 </small>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                Total revenue generated as reflected in your stripe dashboard.
+                Total revenue gathered from all closed deals in your pipelines.
               </CardContent>
               <DollarSign className="absolute right-4 top-4 text-muted-foreground" />
             </Card>
@@ -159,7 +161,7 @@ const SubaccountPageId = async ({ params, searchParams }: Props) => {
                 <CardTitle className="text-4xl">
                   {potentialIncome
                     ? `${currency} ${potentialIncome.toFixed(2)}`
-                    : `$0.00`}
+                    : `₹0.00`}
                 </CardTitle>
                 <small className="text-xs text-muted-foreground">
                   For the year {currentYear}
@@ -181,7 +183,7 @@ const SubaccountPageId = async ({ params, searchParams }: Props) => {
                     <>
                       {sessions && (
                         <div className="flex flex-col">
-                          Total Carts Opened
+                          Total Deals Created
                           <div className="flex gap-2">
                             <ShoppingCart className="text-rose-700" />
                             {sessions.length}
@@ -190,7 +192,7 @@ const SubaccountPageId = async ({ params, searchParams }: Props) => {
                       )}
                       {totalClosedSessions && (
                         <div className="flex flex-col">
-                          Won Carts
+                          Won Deals
                           <div className="flex gap-2">
                             <ShoppingCart className="text-emerald-700" />
                             {totalClosedSessions.length}
@@ -220,7 +222,7 @@ const SubaccountPageId = async ({ params, searchParams }: Props) => {
             </Card>
             <Card className="p-4 flex-1">
               <CardHeader>
-                <CardTitle>Checkout Activity</CardTitle>
+                <CardTitle>Closed Deals Activity</CardTitle>
               </CardHeader>
               <AreaChart
                 className="text-sm stroke-primary"
@@ -237,7 +239,7 @@ const SubaccountPageId = async ({ params, searchParams }: Props) => {
             <Card className="p-4 flex-1 h-[450px] overflow-scroll relative">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  Transition History
+                  Recent Closed Deals
                   <BadgeDelta
                     className="rounded-xl bg-transparent"
                     deltaType="moderateIncrease"
@@ -250,26 +252,27 @@ const SubaccountPageId = async ({ params, searchParams }: Props) => {
                 <Table>
                   <TableHeader className="!sticky !top-0">
                     <TableRow>
-                      <TableHead className="w-[300px]">Email</TableHead>
+                      <TableHead className="w-[300px]">Client / Deal</TableHead>
                       <TableHead className="w-[200px]">Status</TableHead>
-                      <TableHead>Created Date</TableHead>
+                      <TableHead>Closed Date</TableHead>
                       <TableHead className="text-right">Value</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody className="font-medium truncate">
-                    {totalClosedSessions
-                      ? totalClosedSessions.map((session) => (
+                    {totalClosedSessions && totalClosedSessions.length > 0
+                      ? totalClosedSessions.map((session: any) => (
                           <TableRow key={session.id}>
                             <TableCell>
-                              {session.customer_details?.email || "-"}
+                              {session.name} <br/> 
+                              <span className="text-xs text-muted-foreground">{session.customer_details?.email || ""}</span>
                             </TableCell>
                             <TableCell>
                               <Badge className="bg-emerald-500 dark:text-black">
-                                Paid
+                                Won
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              {new Date(session.created).toUTCString()}
+                              {new Date(session.updatedAt).toLocaleDateString()}
                             </TableCell>
 
                             <TableCell className="text-right">

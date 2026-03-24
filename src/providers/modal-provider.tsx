@@ -1,6 +1,6 @@
 "use client";
 
-import { PricesList, TicketDetails } from "@/lib/types";
+import { TicketDetails } from "@/lib/types";
 import { Agency, Contact, Ticket, User } from "@prisma/client";
 import {
   createContext,
@@ -57,7 +57,7 @@ const ModalProvider: FC<ModalProviderProps> = ({ children }) => {
   ) => {
     if (modal) {
       if (fetchData) {
-        setData({ ...data, ...(await fetchData()) } || {});
+        setData({ ...data, ...(await fetchData()) });
       }
       setShowingModal(modal);
       setIsOpen(true);

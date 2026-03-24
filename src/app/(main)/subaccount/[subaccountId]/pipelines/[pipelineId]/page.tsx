@@ -4,6 +4,7 @@ import {
   getLanesWithTicketAndTags,
   getPipelineDetails,
   getPipelines,
+  getAuthUserDetails,
 } from "@/lib/queries";
 import {
   updateLanesOrderAction,
@@ -32,6 +33,8 @@ const PipelinePage = async ({ params }: Props) => {
     params.pipelineId
   )) as LaneDetail[];
 
+  const user = await getAuthUserDetails();
+
   return (
     <Tabs defaultValue="view" className="w-full">
       <TabsList className="bg-transparent border-b-2 h-16 w-full justify-between mb-4">
@@ -54,6 +57,7 @@ const PipelinePage = async ({ params }: Props) => {
           subaccountId={params.subaccountId}
           updateLanesOrder={updateLanesOrderAction}
           updateTicketsOrder={updateTicketsOrderAction}
+          userRole={user?.role}
         />
       </TabsContent>
 

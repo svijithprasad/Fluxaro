@@ -16,15 +16,9 @@ const CheckoutPlaceholder = (props: Props) => {
       onDragStart={(e) => {
         handleDragStart(e, "paymentForm");
       }}
-      className=" h-14 w-14 bg-muted rounded-lg flex items-center justify-center"
+      className="h-14 w-14 bg-muted rounded-lg flex items-center justify-center flex-col gap-1"
     >
-      <Image
-        alt="Stripe payment image "
-        src={"/stripelogo.png"}
-        width={40}
-        height={40}
-        className="object-cover"
-      />
+      <CreditCard size={24} className="text-muted-foreground" />
     </div>
   );
 };

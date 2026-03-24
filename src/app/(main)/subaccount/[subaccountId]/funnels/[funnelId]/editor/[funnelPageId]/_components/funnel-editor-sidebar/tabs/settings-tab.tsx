@@ -36,11 +36,12 @@ import {
 } from "@/components/ui/select";
 import { useEditor } from "@/providers/editor/editor-provider";
 import { Slider } from "@/components/ui/slider";
+import MediaBucketPicker from "./media-bucket-picker";
 
 type Props = {};
 
 const SettingsTab = (props: Props) => {
-  const { state, dispatch } = useEditor();
+  const { state, dispatch, subaccountId } = useEditor();
 
   const handleOnChanges = (e: any) => {
     const styleSettings = e.target.id;
@@ -119,6 +120,127 @@ const SettingsTab = (props: Props) => {
                   />
                 </div>
               </>
+            )}
+          {state.editor.selectedElement.type === "image" &&
+            !Array.isArray(state.editor.selectedElement.content) && (
+              <>
+                <div className="flex flex-col gap-2">
+                  <p className="text-muted-foreground">Image URL</p>
+                  <Input
+                    id="src"
+                    placeholder="https:domain.example.com/image.png"
+                    onChange={handleChangeCustomValues}
+                    value={state.editor.selectedElement.content.src}
+                  />
+                </div>
+                <MediaBucketPicker
+                  subaccountId={subaccountId}
+                  onSelect={(url) => {
+                    dispatch({
+                      type: "UPDATE_ELEMENT",
+                      payload: {
+                        elementDetails: {
+                          ...state.editor.selectedElement,
+                          content: {
+                            ...state.editor.selectedElement.content,
+                            src: url,
+                          },
+                        },
+                      },
+                    });
+                  }}
+                />
+              </>
+            )}
+          {state.editor.selectedElement.type === "button" &&
+            !Array.isArray(state.editor.selectedElement.content) && (
+              <div className="flex flex-col gap-2">
+                <p className="text-muted-foreground">Button Text</p>
+                <Input
+                  id="innerText"
+                  placeholder="Click Me"
+                  onChange={handleChangeCustomValues}
+                  value={state.editor.selectedElement.content.innerText}
+                />
+              </div>
+            )}
+          {state.editor.selectedElement.type === "paymentForm" &&
+            !Array.isArray(state.editor.selectedElement.content) && (
+              <div className="flex flex-col gap-2">
+                <p className="text-muted-foreground">Razorpay Payment Button ID</p>
+                <Input
+                  id="paymentButtonId"
+                  placeholder="e.g. pl_XYZ123..."
+                  onChange={handleChangeCustomValues}
+                  value={state.editor.selectedElement.content.paymentButtonId || ""}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Create a Payment Button in your Razorpay dashboard and paste the ID here.
+                </p>
+              </div>
+            )}
+        </AccordionContent>
+      </AccordionItem>
+      <AccordionItem value="CustomCSS" className="px-6 py-0">
+        <AccordionTrigger className="!no-underline">Custom CSS</AccordionTrigger>
+        <AccordionContent>
+          <div className="flex flex-col gap-2">
+            <p className="text-muted-foreground text-xs">
+              Write raw CSS that overrides all other styles. Use standard CSS
+              property names (e.g. border-radius, box-shadow).
+            </p>
+            <textarea
+              className="w-full min-h-[100px] p-2 text-xs font-mono border rounded-md bg-background resize-y"
+              placeholder={"border: 2px solid red;\nbox-shadow: 0 0 10px rgba(0,0,0,0.3);"}
+              value={
+                !Array.isArray(state.editor.selectedElement.content)
+                  ? state.editor.selectedElement.content.customCss || ""
+                  : ""
+              }
+              onChange={(e) => {
+                if (Array.isArray(state.editor.selectedElement.content)) return;
+                dispatch({
+                  type: "UPDATE_ELEMENT",
+                  payload: {
+                    elementDetails: {
+                      ...state.editor.selectedElement,
+                      content: {
+                        ...state.editor.selectedElement.content,
+                        customCss: e.target.value,
+                      },
+                    },
+                  },
+                });
+              }}
+            />
+          </div>
+          {state.editor.selectedElement.type === "image" &&
+            !Array.isArray(state.editor.selectedElement.content) && (
+              <div className="flex flex-col gap-2 mt-3">
+                <p className="text-muted-foreground text-xs font-medium">
+                  Image Dimensions
+                </p>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Label className="text-muted-foreground text-xs">Width</Label>
+                    <Input
+                      placeholder="e.g. 400px or 100%"
+                      id="width"
+                      onChange={handleOnChanges}
+                      value={state.editor.selectedElement.styles.width}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <Label className="text-muted-foreground text-xs">Height</Label>
+                    <Input
+                      placeholder="e.g. 300px or auto"
+                      id="height"
+                      onChange={handleOnChanges}
+                      value={state.editor.selectedElement.styles.height}
+                    />
+                  </div>
+                </div>
+              </div>
             )}
         </AccordionContent>
       </AccordionItem>

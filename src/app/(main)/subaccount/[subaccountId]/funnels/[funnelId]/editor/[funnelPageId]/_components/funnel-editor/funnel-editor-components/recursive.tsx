@@ -6,6 +6,11 @@ import LinkComponent from "./link-component";
 import ContactFormComponent from "./contact-form-component";
 import Checkout from "./checkout-component";
 import TextComponent from "./text-component";
+import ImageComponent from "./image-component";
+import ButtonComponent from "./button-component";
+import SeparatorComponent from "./separator-component";
+import NavbarComponent from "./navbar-component";
+import CustomCodeComponent from "./custom-code-component";
 
 type Props = {
   element: EditorElement;
@@ -25,11 +30,22 @@ const Recursive = ({ element }: Props) => {
       return <Checkout element={element} />;
     case "2Col":
       return <Container element={element} />;
+    case "3Col":
+      return <Container element={element} />;
     case "__body":
       return <Container element={element} />;
-
     case "link":
       return <LinkComponent element={element} />;
+    case "image":
+      return <ImageComponent element={element} />;
+    case "button":
+      return <ButtonComponent element={element} />;
+    case "separator":
+      return <SeparatorComponent element={element} />;
+    case "navbar":
+      return <NavbarComponent element={element} />;
+    case "customCode":
+      return <CustomCodeComponent element={element} />;
     default:
       return null;
   }

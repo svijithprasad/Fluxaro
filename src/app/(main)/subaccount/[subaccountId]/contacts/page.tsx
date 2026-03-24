@@ -15,11 +15,16 @@ import React from "react";
 import CreateContactButton from "./_components/create-contact-button";
 import BlurPage from "@/components/global/blur-page";
 
+import { getAuthUserDetails } from "@/lib/queries";
+
 type Props = {
   params: { subaccountId: string };
 };
 
 const ContactsPage = async ({ params }: Props) => {
+  const user = await getAuthUserDetails();
+  const isGuest = user?.role === "SUBACCOUNT_GUEST";
+
   type SubAccountWithContacts = SubAccount & {
     Contact: (Contact & { Ticket: Ticket[] })[];
   };
@@ -52,7 +57,7 @@ const ContactsPage = async ({ params }: Props) => {
 
     const amount = new Intl.NumberFormat(undefined, {
       style: "currency",
-      currency: "USD",
+      currency: "INR",
     });
 
     const laneAmount = tickets.reduce(
@@ -67,7 +72,7 @@ const ContactsPage = async ({ params }: Props) => {
     <BlurPage>
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-4xl p-4">Contacts</h1>
-        <CreateContactButton subAccountId={params.subaccountId} />
+        {!isGuest && <CreateContactButton subAccountId={params.subaccountId} />}
       </div>
       <Table>
         <TableHeader>

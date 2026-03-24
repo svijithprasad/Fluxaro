@@ -75,6 +75,21 @@ const ContactUserForm: FC<ContactUserFormProps> = ({ subaccountId }) => {
       setClose();
       router.refresh();
     } catch (error: any) {
+      try {
+        const errData = JSON.parse(error.message);
+        if (errData.error === "CONFLICT") {
+          toast({
+            variant: "destructive",
+            title: "Conflict Detected",
+            description: errData.message,
+          });
+          router.refresh();
+          setClose();
+          return;
+        }
+      } catch (e) {
+        // Not a JSON error
+      }
       toast({
         variant: "destructive",
         title: "Oppse!",

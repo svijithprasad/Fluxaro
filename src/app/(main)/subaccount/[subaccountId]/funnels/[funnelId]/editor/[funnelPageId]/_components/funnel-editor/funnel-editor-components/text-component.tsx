@@ -1,6 +1,7 @@
 "use client";
 import { Badge } from "@/components/ui/badge";
 import { EditorElement, useEditor } from "@/providers/editor/editor-provider";
+import { parseCssToReactStyles } from "@/lib/css-parser";
 import clsx from "clsx";
 import { Trash } from "lucide-react";
 import React from "react";
@@ -18,7 +19,11 @@ const TextComponent = (props: Props) => {
       payload: { elementDetails: props.element },
     });
   };
-  const styles = props.element.styles;
+  const rawStyles = props.element.styles;
+  const customCssOverrides = !Array.isArray(props.element.content)
+    ? parseCssToReactStyles(props.element.content.customCss || "")
+    : {};
+  const styles = { ...rawStyles, ...customCssOverrides };
 
   const handleOnClickBody = (e: React.MouseEvent) => {
     e.stopPropagation();

@@ -70,7 +70,7 @@ const Container = ({ element }: Props) => {
             containerId: id,
             elementDetails: {
               content: {
-                src: "https://www.youtube.com/embed/6omuUOZcWL0?si=NiFfSqKKAs-gInjm",
+                src: "https://www.youtube.com/embed/a3ICNMQW7Ok?si=HId4Dxh7lqmSAujx",
               },
               id: v4(),
               name: "Video",
@@ -150,11 +150,163 @@ const Container = ({ element }: Props) => {
           payload: {
             containerId: id,
             elementDetails: {
-              content: [],
+              content: {},
               id: v4(),
               name: "Payment Form",
               styles: {},
               type: "paymentForm",
+            },
+          },
+        });
+        break;
+      case "image":
+        dispatch({
+          type: "ADD_ELEMENT",
+          payload: {
+            containerId: id,
+            elementDetails: {
+              content: {
+                src: "https://placehold.co/600x400?text=Select+Image",
+              },
+              id: v4(),
+              name: "Image",
+              styles: {
+                ...defaultStyles,
+                width: "100%",
+              },
+              type: "image",
+            },
+          },
+        });
+        break;
+      case "button":
+        dispatch({
+          type: "ADD_ELEMENT",
+          payload: {
+            containerId: id,
+            elementDetails: {
+              content: { innerText: "Click Me" },
+              id: v4(),
+              name: "Button",
+              styles: {
+                ...defaultStyles,
+                backgroundColor: "#3b82f6",
+                color: "white",
+                paddingLeft: "16px",
+                paddingRight: "16px",
+                paddingTop: "10px",
+                paddingBottom: "10px",
+                borderRadius: "6px",
+                fontWeight: "bold",
+                textAlign: "center",
+                cursor: "pointer",
+              },
+              type: "button",
+            },
+          },
+        });
+        break;
+      case "separator":
+        dispatch({
+          type: "ADD_ELEMENT",
+          payload: {
+            containerId: id,
+            elementDetails: {
+              content: {},
+              id: v4(),
+              name: "Separator",
+              styles: {
+                ...defaultStyles,
+                width: "100%",
+                marginTop: "10px",
+                marginBottom: "10px",
+              },
+              type: "separator",
+            },
+          },
+        });
+        break;
+      case "3Col":
+        dispatch({
+          type: "ADD_ELEMENT",
+          payload: {
+            containerId: id,
+            elementDetails: {
+              content: [
+                {
+                  content: [],
+                  id: v4(),
+                  name: "Container",
+                  styles: { ...defaultStyles, width: "100%" },
+                  type: "container",
+                },
+                {
+                  content: [],
+                  id: v4(),
+                  name: "Container",
+                  styles: { ...defaultStyles, width: "100%" },
+                  type: "container",
+                },
+                {
+                  content: [],
+                  id: v4(),
+                  name: "Container",
+                  styles: { ...defaultStyles, width: "100%" },
+                  type: "container",
+                },
+              ],
+              id: v4(),
+              name: "Three Columns",
+              styles: { ...defaultStyles, display: "flex" },
+              type: "3Col",
+            },
+          },
+        });
+        break;
+      case "navbar":
+        dispatch({
+          type: "ADD_ELEMENT",
+          payload: {
+            containerId: id,
+            elementDetails: {
+              content: {
+                brandName: "Brand",
+                navLinks: [
+                  { label: "Home", href: "#" },
+                  { label: "About", href: "#" },
+                  { label: "Services", href: "#" },
+                  { label: "Contact", href: "#" },
+                ],
+              },
+              id: v4(),
+              name: "Navbar",
+              styles: {
+                ...defaultStyles,
+                width: "100%",
+                backgroundColor: "#1a1a2e",
+                color: "#ffffff",
+              },
+              type: "navbar",
+            },
+          },
+        });
+        break;
+      case "customCode":
+        dispatch({
+          type: "ADD_ELEMENT",
+          payload: {
+            containerId: id,
+            elementDetails: {
+              content: {
+                code: "<!-- Paste your HTML here -->",
+              },
+              id: v4(),
+              name: "Code Embed",
+              styles: {
+                ...defaultStyles,
+                width: "100%",
+              },
+              type: "customCode",
             },
           },
         });
@@ -196,11 +348,11 @@ const Container = ({ element }: Props) => {
     <div
       style={styles}
       className={clsx("relative p-4 transition-all group", {
-        "max-w-full w-full": type === "container" || type === "2Col",
+        "max-w-full w-full": type === "container" || type === "2Col" || type === "3Col",
         "h-fit": type === "container",
         "h-full": type === "__body",
         "overflow-y-scroll overflow-x-hidden": type === "__body",
-        "flex flex-col md:!flex-row": type === "2Col",
+        "flex flex-col md:!flex-row": type === "2Col" || type === "3Col",
         "!border-blue-500":
           state.editor.selectedElement.id === id &&
           !state.editor.liveMode &&

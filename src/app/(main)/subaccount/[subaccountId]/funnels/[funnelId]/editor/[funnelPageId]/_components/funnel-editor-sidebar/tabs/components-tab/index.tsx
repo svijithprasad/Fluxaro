@@ -11,8 +11,14 @@ import ContainerPlaceholder from "./container-placeholder";
 import VideoPlaceholder from "./video-placeholder";
 import LinkPlaceholder from "./link-placeholder";
 import TwoColumnsPlaceholder from "./two-columns-placeholder";
+import ThreeColumnsPlaceholder from "./three-columns-placeholder";
 import ContactFormComponentPlaceholder from "./contact-form-placeholder";
 import CheckoutPlaceholder from "./checkout-placeholder";
+import ImagePlaceholder from "./image-placeholder";
+import ButtonPlaceholder from "./button-placeholder";
+import SeparatorPlaceholder from "./separator-placeholder";
+import NavbarPlaceholder from "./navbar-placeholder";
+import CustomCodePlaceholder from "./custom-code-placeholder";
 
 type Props = {};
 
@@ -42,9 +48,33 @@ const ComponentsTab = (props: Props) => {
       group: "layout",
     },
     {
+      Component: <ThreeColumnsPlaceholder />,
+      label: "3 Columns",
+      id: "3Col",
+      group: "layout",
+    },
+    {
       Component: <VideoPlaceholder />,
       label: "Video",
       id: "video",
+      group: "elements",
+    },
+    {
+      Component: <ImagePlaceholder />,
+      label: "Image",
+      id: "image",
+      group: "elements",
+    },
+    {
+      Component: <ButtonPlaceholder />,
+      label: "Button",
+      id: "button",
+      group: "elements",
+    },
+    {
+      Component: <SeparatorPlaceholder />,
+      label: "Separator",
+      id: "separator",
       group: "elements",
     },
     {
@@ -63,6 +93,18 @@ const ComponentsTab = (props: Props) => {
       Component: <LinkPlaceholder />,
       label: "Link",
       id: "link",
+      group: "elements",
+    },
+    {
+      Component: <NavbarPlaceholder />,
+      label: "Navbar",
+      id: "navbar",
+      group: "layout",
+    },
+    {
+      Component: <CustomCodePlaceholder />,
+      label: "Code Embed",
+      id: "customCode",
       group: "elements",
     },
   ];

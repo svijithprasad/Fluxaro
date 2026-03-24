@@ -27,7 +27,7 @@ const Page = async ({
   params: { agencyId: string };
   searchParams: { code: string };
 }) => {
-  let currency = "USD";
+  let currency = "INR";
   let sessions;
   let totalClosedSessions;
   let totalPendingSessions;
@@ -52,56 +52,66 @@ const Page = async ({
     },
   });
 
-  if (agencyDetails.connectAccountId) {
-    try {
-      const response = await stripe.accounts.retrieve({
-        stripeAccount: agencyDetails.connectAccountId,
-      });
-
-      currency = response.default_currency?.toUpperCase() || "USD";
-      const checkoutSessions = await stripe.checkout.sessions.list(
-        {
-          created: { gte: startDate, lte: endDate },
-          limit: 100,
-        },
-        { stripeAccount: agencyDetails.connectAccountId }
-      );
-      sessions = checkoutSessions.data;
-      totalClosedSessions = checkoutSessions.data
-        .filter((session) => session.status === "complete")
-        .map((session) => ({
-          id: session.id,
-          created: new Date(session.created).toLocaleDateString(),
-          amount_total: session.amount_total ? session.amount_total / 100 : 0,
-          status: session.status,
-          customer_details: session.customer_details,
-        }));
-
-      totalPendingSessions = checkoutSessions.data
-        .filter((session) => session.status === "open")
-        .map((session) => ({
-          id: session.id,
-          created: new Date(session.created).toLocaleDateString(),
-          amount_total: session.amount_total ? session.amount_total / 100 : 0,
-          status: session.status,
-        }));
-      net = +totalClosedSessions
-        .reduce((total, session) => total + (session.amount_total || 0), 0)
-        .toFixed(2);
-
-      potentialIncome = +totalPendingSessions
-        .reduce((total, session) => total + (session.amount_total || 0), 0)
-        .toFixed(2);
-
-      closingRate = +(
-        (totalClosedSessions.length / checkoutSessions.data.length) *
-        100
-      ).toFixed(2);
-    } catch (error) {
-      console.error("Error fetching Stripe data:", error);
-      // Continue with default values if Stripe fetch fails
+  const pipelines = await db.pipeline.findMany({
+    where: { SubAccount: { agencyId: params.agencyId } },
+    include: {
+      Lane: {
+        orderBy: { order: "asc" },
+        include: {
+          Tickets: {
+            include: { Customer: true }
+          }
+        }
+      }
     }
-  }
+  });
+
+  let allTickets = 0;
+  totalClosedSessions = [] as any[];
+  totalPendingSessions = [] as any[];
+
+  pipelines.forEach((pipeline) => {
+    const lanes = pipeline.Lane;
+    if (lanes.length === 0) return;
+    
+    // The last lane is designated as the "Won/Closed" lane
+    const lastLaneId = lanes[lanes.length - 1].id;
+
+    lanes.forEach((lane) => {
+      lane.Tickets.forEach((ticket) => {
+        allTickets++;
+        const value = Number(ticket.value || 0);
+        
+        const mappedTicket = {
+          id: ticket.id,
+          name: ticket.name,
+          created: new Date(ticket.createdAt).toLocaleDateString(),
+          updatedAt: ticket.updatedAt,
+          amount_total: value, // for AreaChart compatibility
+          status: lane.id === lastLaneId ? "complete" : "open",
+          customer_details: { email: ticket.Customer?.email },
+        };
+
+        if (lane.id === lastLaneId) {
+          totalClosedSessions.push(mappedTicket);
+          net += value;
+        } else {
+          totalPendingSessions.push(mappedTicket);
+          potentialIncome += value;
+        }
+      });
+    });
+  });
+
+  totalClosedSessions.sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
+  sessions = [...totalClosedSessions, ...totalPendingSessions].sort(
+    (a: any, b: any) => new Date(a.created).getTime() - new Date(b.created).getTime()
+  );
+
+  closingRate = allTickets
+    ? +((totalClosedSessions.length / allTickets) * 100).toFixed(2)
+    : 0;
 
   return (
     <div className="relative h-full">
@@ -113,14 +123,14 @@ const Page = async ({
             <CardHeader>
               <CardDescription>Income</CardDescription>
               <CardTitle className="text-4xl">
-                {net ? `${currency} ${net.toFixed(2)}` : `$0.00`}
+                {net ? `${currency} ${net.toFixed(2)}` : `₹0.00`}
               </CardTitle>
               <small className="text-xs text-muted-foreground">
                 For the year {currentYear}
               </small>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
-              Total revenue generated as reflected in your stripe dashboard.
+              Total revenue gathered from all closed deals in subaccount pipelines.
             </CardContent>
             <DollarSign className="absolute right-4 top-4 text-muted-foreground" />
           </Card>
@@ -130,7 +140,7 @@ const Page = async ({
               <CardTitle className="text-4xl">
                 {potentialIncome
                   ? `${currency} ${potentialIncome.toFixed(2)}`
-                  : `$0.00`}
+                  : `₹0.00`}
               </CardTitle>
               <small className="text-xs text-muted-foreground">
                 For the year {currentYear}
@@ -182,14 +192,11 @@ const Page = async ({
         <div className="flex gap-4 xl:!flex-row flex-col">
           <Card className="p-4 flex-1">
             <CardHeader>
-              <CardTitle>Transaction History</CardTitle>
+              <CardTitle>Closed Deals Activity</CardTitle>
             </CardHeader>
             <AreaChart
               className="text-sm stroke-primary"
-              data={[
-                ...(totalClosedSessions || []),
-                ...(totalPendingSessions || []),
-              ]}
+              data={totalClosedSessions || []}
               index="created"
               categories={["amount_total"]}
               colors={["primary"]}
@@ -208,7 +215,7 @@ const Page = async ({
                   <>
                     {sessions && (
                       <div className="flex flex-col">
-                        Abandoned
+                        Total Deals Created
                         <div className="flex gap-2">
                           <ShoppingCart className="text-rose-700" />
                           {sessions.length}
@@ -217,7 +224,7 @@ const Page = async ({
                     )}
                     {totalClosedSessions && (
                       <div className="felx flex-col">
-                        Won Carts
+                        Won Deals
                         <div className="flex gap-2">
                           <ShoppingCart className="text-emerald-700" />
                           {totalClosedSessions.length}

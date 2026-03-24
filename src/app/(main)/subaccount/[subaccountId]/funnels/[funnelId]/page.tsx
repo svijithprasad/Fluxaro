@@ -1,6 +1,6 @@
 import BlurPage from "@/components/global/blur-page";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getFunnel } from "@/lib/queries";
+import { getAuthUserDetails, getFunnel } from "@/lib/queries";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import React from "react";
@@ -14,6 +14,7 @@ type Props = {
 
 const FunnelPage = async ({ params }: Props) => {
   const funnelPages = await getFunnel(params.funnelId);
+  const user = await getAuthUserDetails();
   if (!funnelPages)
     return redirect(`/subaccount/${params.subaccountId}/funnels`);
 
@@ -37,6 +38,7 @@ const FunnelPage = async ({ params }: Props) => {
             subaccountId={params.subaccountId}
             pages={funnelPages.FunnelPages}
             funnelId={params.funnelId}
+            userRole={user?.role}
           />
         </TabsContent>
         <TabsContent value="settings">

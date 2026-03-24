@@ -30,6 +30,9 @@ import { Button } from "../ui/button";
 import Loading from "../global/loading";
 import { saveActivityLogsNotification, sendInvitation } from "@/lib/queries";
 import { useToast } from "../ui/use-toast";
+import { useModal } from "@/providers/modal-provider";
+import UpgradePrompt from "../global/upgrade-prompt";
+import { useRouter } from "next/navigation";
 
 interface SendInvitationProps {
   agencyId: string;
@@ -37,6 +40,8 @@ interface SendInvitationProps {
 
 const SendInvitation: React.FC<SendInvitationProps> = ({ agencyId }) => {
   const { toast } = useToast();
+  const { setOpen, setClose } = useModal();
+  const router = useRouter();
   const userDataSchema = z.object({
     email: z.string().email(),
     role: z.enum(["AGENCY_ADMIN", "SUBACCOUNT_USER", "SUBACCOUNT_GUEST"]),
@@ -63,8 +68,26 @@ const SendInvitation: React.FC<SendInvitationProps> = ({ agencyId }) => {
         title: "Success",
         description: "Created and sent invitation",
       });
-    } catch (error) {
-      console.log(error);
+      router.refresh();
+      setClose();
+    } catch (error: any) {
+      try {
+        const errData = JSON.parse(error.message);
+        if (errData.error === "LIMIT_REACHED") {
+          setOpen(
+            <UpgradePrompt
+              resource={errData.resource}
+              current={errData.current}
+              limit={errData.limit}
+              plan={errData.plan}
+              agencyId={errData.agencyId}
+            />
+          );
+          return;
+        }
+      } catch (e) {
+        console.error(error);
+      }
       toast({
         variant: "destructive",
         title: "Oppse!",

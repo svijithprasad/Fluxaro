@@ -32,6 +32,7 @@ import { saveActivityLogsNotification, upsertSubAccount } from "@/lib/queries";
 import { useEffect } from "react";
 import Loading from "../global/loading";
 import { useModal } from "@/providers/modal-provider";
+import UpgradePrompt from "../global/upgrade-prompt";
 
 const formSchema = z.object({
   name: z.string(),
@@ -55,6 +56,7 @@ interface SubAccountDetailsProps {
   details?: Partial<SubAccount>;
   userId: string;
   userName: string;
+  userRole?: string;
 }
 
 const SubAccountDetails: React.FC<SubAccountDetailsProps> = ({
@@ -62,9 +64,10 @@ const SubAccountDetails: React.FC<SubAccountDetailsProps> = ({
   agencyDetails,
   userId,
   userName,
+  userRole,
 }) => {
   const { toast } = useToast();
-  const { setClose } = useModal();
+  const { setClose, setOpen } = useModal();
   const router = useRouter();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -116,7 +119,24 @@ const SubAccountDetails: React.FC<SubAccountDetailsProps> = ({
 
       setClose();
       router.refresh();
-    } catch (error) {
+    } catch (error: any) {
+      try {
+        const errData = JSON.parse(error.message);
+        if (errData.error === "LIMIT_REACHED") {
+          setOpen(
+            <UpgradePrompt
+              resource={errData.resource}
+              current={errData.current}
+              limit={errData.limit}
+              plan={errData.plan}
+              agencyId={errData.agencyId}
+            />
+          );
+          return;
+        }
+      } catch (e) {
+        // Not a JSON error
+      }
       toast({
         variant: "destructive",
         title: "Oppse!",
@@ -285,9 +305,11 @@ const SubAccountDetails: React.FC<SubAccountDetailsProps> = ({
                 </FormItem>
               )}
             />
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? <Loading /> : "Save Account Information"}
-            </Button>
+            {userRole !== "SUBACCOUNT_GUEST" && (
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? <Loading /> : "Save Account Information"}
+              </Button>
+            )}
           </form>
         </Form>
       </CardContent>

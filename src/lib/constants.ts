@@ -41,35 +41,49 @@ export const SUBACCOUNT_GUEST = "SUBACCOUNT_GUEST";
 export const pricingCards = [
   {
     title: "Starter",
-    description: "Perfect for trying out plura",
+    description: "Perfect for trying out Fluxaro",
     price: "Free",
     duration: "",
     highlight: "Key features",
-    features: ["3 Sub accounts", "2 Team members", "Unlimited pipelines"],
-    priceId: "",
-  },
-  {
-    title: "Unlimited SaaS",
-    description: "The ultimate agency kit",
-    price: "$199",
-    duration: "month",
-    highlight: "Key features",
-    features: ["Rebilling", "24/7 Support team"],
-    priceId: "price_1PLsMqKGNCglu56aDlD38ch8",
+    features: [
+      "3 Sub Accounts",
+      "3 Funnels per Sub Account",
+      "2 Pipelines per Sub Account",
+      "2 Team Members",
+      "50 Media Uploads",
+    ],
+    planName: "FREE" as const,
   },
   {
     title: "Basic",
-    description: "For serious agency owners",
-    price: "$49",
+    description: "For growing agencies",
+    price: "₹499",
     duration: "month",
     highlight: "Everything in Starter, plus",
-    features: ["Unlimited Sub accounts", "Unlimited Team members"],
-    priceId: "price_1PLsMqKGNCglu56a5yMZ0vRQ",
+    features: [
+      "10 Sub Accounts",
+      "20 Funnels per Sub Account",
+      "10 Pipelines per Sub Account",
+      "5 Team Members",
+      "500 Media Uploads",
+    ],
+    planName: "BASIC" as const,
   },
-];
-
-export const addOnProducts = [
-  { title: "Priority Support", id: "prod_QCHatxrEcf1DVH" },
+  {
+    title: "Unlimited",
+    description: "The ultimate agency kit",
+    price: "₹1,999",
+    duration: "month",
+    highlight: "Everything unlimited",
+    features: [
+      "Unlimited Sub Accounts",
+      "Unlimited Funnels",
+      "Unlimited Pipelines",
+      "Unlimited Team Members",
+      "Unlimited Media Uploads",
+    ],
+    planName: "UNLIMITED" as const,
+  },
 ];
 
 export const icons = [
@@ -231,6 +245,10 @@ export type EditorBtns =
   | "video"
   | "__body"
   | "image"
+  | "button"
+  | "separator"
+  | "navbar"
+  | "customCode"
   | null
   | "3Col";
 

@@ -1,4 +1,5 @@
 import { getAuthUserDetails } from "@/lib/queries";
+import { getSubscription } from "@/lib/subscription";
 import { off } from "process";
 import React from "react";
 import MenuOptions from "./menu-options";
@@ -32,11 +33,29 @@ const Sidebar = async ({ id, type }: Props) => {
     }
   }
 
-  const sidebarOpt =
+  let sidebarOpt =
     type === "agency"
       ? user.Agency.SidebarOption || []
       : user.Agency.SubAccount.find((subaccount) => subaccount.id === id)
           ?.SidebarOption || [];
+
+  if (type === "agency") {
+    const hasBilling = sidebarOpt.find((opt) => opt.name === "Billing");
+    if (!hasBilling) {
+      sidebarOpt = [
+        ...sidebarOpt,
+        {
+          id: "billing-tab-fallback",
+          name: "Billing",
+          link: `/agency/${user.Agency.id}/billing`,
+          icon: "payment",
+          agencyId: user.Agency.id,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ];
+    }
+  }
 
   const subaccounts = user.Agency.SubAccount.filter((subaccount) =>
     user.Permissions.find(
@@ -44,6 +63,9 @@ const Sidebar = async ({ id, type }: Props) => {
         permission.subAccountId === subaccount.id && permission.access
     )
   );
+
+  const subscription = await getSubscription(user.Agency.id);
+  const planMode = subscription?.plan || "FREE";
 
   return (
     <>
@@ -55,6 +77,7 @@ const Sidebar = async ({ id, type }: Props) => {
         sidebarOpt={sidebarOpt}
         subAccounts={subaccounts}
         user={user}
+        planMode={type === "agency" ? planMode : undefined}
       />
       <MenuOptions
         details={details}
@@ -63,6 +86,7 @@ const Sidebar = async ({ id, type }: Props) => {
         sidebarOpt={sidebarOpt}
         subAccounts={subaccounts}
         user={user}
+        planMode={type === "agency" ? planMode : undefined}
       />
     </>
   );

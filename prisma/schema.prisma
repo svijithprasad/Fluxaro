@@ -98,6 +98,7 @@ model Agency {
   SidebarOption    AgencySidebarOption[]
   Invitation       Invitation[]
   Notification     Notification[]
+  Subscription     Subscription?
 }
 
 model SubAccount {
@@ -137,6 +138,7 @@ model Tag {
   color        String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  version      Int      @default(0)
   subAccountId String
 
   SubAccount SubAccount @relation(fields: [subAccountId], references: [id], onDelete: Cascade)
@@ -150,6 +152,7 @@ model Pipeline {
   name         String
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
+  version      Int        @default(0)
   Lane         Lane[]
   SubAccount   SubAccount @relation(fields: [subAccountId], references: [id], onDelete: Cascade)
   subAccountId String
@@ -162,6 +165,7 @@ model Lane {
   name       String
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  version    Int      @default(0)
   Pipeline   Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
   pipelineId String
   Tickets    Ticket[]
@@ -175,6 +179,7 @@ model Ticket {
   name        String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  version     Int      @default(0)
   laneId      String
   order       Int      @default(0)
   Lane        Lane     @relation(fields: [laneId], references: [id], onDelete: Cascade)
@@ -262,6 +267,7 @@ model Contact {
   email        String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  version      Int      @default(0)
   subAccountId String
 
   Subaccount SubAccount @relation(fields: [subAccountId], references: [id], onDelete: Cascade)
@@ -288,6 +294,7 @@ model Funnel {
   name          String
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
+  version       Int          @default(0)
   description   String?
   published     Boolean      @default(false)
   subDomainName String?      @unique
@@ -320,6 +327,7 @@ model FunnelPage {
   pathName     String   @default("")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  version      Int      @default(0)
   visits       Int      @default(0)
   content      String?  @db.LongText
   order        Int
@@ -392,41 +400,16 @@ model Notification {
   @@index([userId])
 }
 
-enum Plan {
-  // This enum is deprecated and kept for migration purposes only
-  // All payment functionality has been removed
-  price_1PLsMqKGNCglu56a5yMZ0vRQ
-  price_1PLsMqKGNCglu56aDlD38ch8
+model Subscription {
+  id                     String    @id @default(uuid())
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  plan                   String    @default("FREE") // "FREE" | "BASIC" | "UNLIMITED"
+  price                  String?
+  active                 Boolean   @default(true)
+  razorpaySubscriptionId String?   @unique
+  razorpayCustomerId     String?
+  currentPeriodEndDate   DateTime?
+  agencyId               String?   @unique
+  Agency                 Agency?   @relation(fields: [agencyId], references: [id])
 }
-
-// ⚠️ DEPRECATED: Subscription model is no longer used
-// Kept for backwards compatibility during migration
-// model Subscription {
-//   id        String   @id @default(uuid())
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-//   plan      Plan?
-//   price     String?
-//   active    Boolean  @default(false)
-//   priceId              String
-//   customerId           String
-//   currentPeriodEndDate DateTime
-//   subscritiptionId     String   @unique
-//   agencyId String? @unique
-//   Agency   Agency? @relation(fields: [agencyId], references: [id])
-//   @@index([customerId])
-// }
-
-// ⚠️ DEPRECATED: AddOns model is no longer used
-// Kept for backwards compatibility during migration
-// model AddOns {
-//   id        String   @id @default(uuid())
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-//   name      String
-//   active    Boolean  @default(false)
-//   priceId   String   @unique
-//   agencyId  String?
-//   Agency    Agency?  @relation(fields: [agencyId], references: [id])
-//   @@index([agencyId])
-// }
